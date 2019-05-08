@@ -281,18 +281,6 @@ void AluModule::onNotify(message* m) {
 						break;
 				}
 
-				// Checking overflow
-				if (abs(tmp) > pow(2, 16))
-					global_regs.flag |= (1 << OF);
-				
-				// Checking sign
-				if (tmp < 0)
-					global_regs.flag |= (1 << SF);
-				
-				// Checking zero
-				else if (tmp == 0)
-					global_regs.flag |= (1 << ZF);
-
 				myMessage->magic_struct = NULL;
 				
 				sendWithDelay(myMessage, 10);
