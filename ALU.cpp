@@ -21,6 +21,10 @@ AluModule::AluModule(string name, int priority):module(name, priority) {
 	}
 }
 
+void Alu::setFlag(int flag){
+	global_regs.flag |= (1 << flag);
+}
+
 //All custom code must be called from this method
 void AluModule::onNotify(message* m) {
 	//Don't forget to check if the message was for me since we are in a broadcast environment
@@ -48,36 +52,120 @@ void AluModule::onNotify(message* m) {
 
 				switch(alu_regs.opcode){
 					case 0b01010010 :			// INC
-
+						uint8 src = alu_regs.operand1;
+						tmp = global_regs.general_regs[src];
+						tmp++;
+						global_regs.general_regs[src] = tmp;
 						break;
+
 					case 0b01010011 : 			// DEC
-
+						uint8 src = alu_regs.operand1;
+						tmp = global_regs.general_regs[src];
+						tmp--;
+						global_regs.general_regs[src] = tmp;
 						break;
-					case 0b01010100 :			// NEG
 
-						break
-					case 0b01010101 :			// NOT
-
+					case 0b01010100 :			// NEG: two complement
+						uint8 src = alu_regs.operand1;
+						tmp = global_regs.general_regs[src];
+						tmp = 0 - tmp;
+						global_regs.general_regs[src] = tmp;
 						break;
+
+					case 0b01010101 :			// NOT: negate bitwise
+						uint8 src = alu_regs.operand1;
+						tmp = global_regs.general_regs[src];
+						tmp ~= tmp;
+						global_regs.general_regs[src];
+						break;
+
 					case 0b01100001 :			//ADD
-						tmp = alu_regs.operand1 + alu_regs.operand2;
+						uint8 dst = alu_regs.operand2;
+						uint16 op1, op2;
+						op1 = alu_regs.operand1;
+						op2 = alu_regs.general_regs[dst];
+						tmp = op1 + op2;
+						alu_regs.general_regs[dst] = tmp;
+						if(uint16(tmp) == 0)
+							setFlag(ZF);
+						if(int16(tmp < 0))
+							setFlag(SF);
+						if(uint(tmp) >= pow(2,16))
+							setFlag(OF);
 						break;
-					case 0b01100010 :			//SUB
-						tmp = alu_regs.operand1 - alu_regs.operand2;
-						break;
-					case 0b01100011 :			//CMP
-						tmp = alu_regs.operand1 - alu_regs.operand2;
 
+					case 0b01100010 :			//SUB
+						uint8 dst = alu_regs.operand2;
+						uint16 op1, op2;
+						op1 = alu_regs.operand1;
+						op2 = alu_regs.general_regs[dst];
+						tmp = op2 - op1;
+						alu_regs.general_regs[dst] = tmp;
+						if(int16(tmp) == 0)
+							setFlag(ZF);
+						if(int16(tmp < 0))
+							setFlag(SF);
+						if(uint(tmp) >= pow(2,16))
+							setFlag(OF);
 						break;
+
+					case 0b01100011 :			//CMP
+						uint8 dst = alu_regs.operand2;
+						uint16 op1, op2;
+						op1 = alu_regs.operand1;
+						op2 = alu_regs.general_regs[dst];
+						tmp = op2 - op1;
+						if(int16(tmp) == 0)
+							setFlag(ZF);
+						if(int16(tmp < 0))
+							setFlag(SF);
+						if(uint16(tmp) >= pow(2,16))
+							setFlag(OF);
+						break;
+
+
 					case 0b01100100 :			//MUL
-						tmp = alu_regs.operand1 * alu_regs.operand2;
+						uint8 dst = alu_regs.operand2;
+						uint16 op1, op2;
+						op1 = alu_regs.operand1;
+						op2 = alu_regs.general_regs[dst];
+						tmp = op1 * op2;
+						alu_regs.general_regs[dst] = tmp;
+						if(int16(tmp) == 0)
+							setFlag(ZF);
+						if(int16(tmp < 0))
+							setFlag(SF);
+						if(uint16(tmp) >= pow(2,16))
+							setFlag(OF);
 						break;
+
 					case 0b01100101 :			//IMUL
-						tmp = alu_regs.operand1 * alu_regs.operand2;
+						uint8 dst = alu_regs.operand2;
+						uint16 op1, op2;
+						op1 = ( alu_regs.operand1 & 0x7FFF );	// I am putting to zero the first bit
+						op2 = ( alu_regs.general_regs[dst] & 0x7FFF);
+						tmp = op1 * op2;
+
+						if(uint16(tmp) >= pow(2,15))		// The 16th bit is for the sign!
+							setFlag(OF);
+
+						uint16 sign1 = op1 & 0x8000;			// I am now only taking the bit sign
+						uint16 sign2 = op2 & 0x8000;
+						uint16 sign = sign1 ^ sign2;			// Final sign is result of xor of the operands signs
+
+						if((sign) != 0)				
+							setFlag(SF);
+
+						if(int16(tmp) == 0)
+							setFlag(ZF);
+
+						tmp = tmp | sign;
 						break;
+
 					case 0b01100110 :			//DIV
 						tmp = alu_regs.operand1 / alu_regs.operand2;
 						break;
+
 					case 0b01100111 :			//IDIV
 						tmp = alu_regs.operand1 / alu_regs.operand2;		
 						break;
