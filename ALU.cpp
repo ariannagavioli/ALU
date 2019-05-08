@@ -163,18 +163,67 @@ void AluModule::onNotify(message* m) {
 						break;
 
 					case 0b01100110 :			//DIV
-						tmp = alu_regs.operand1 / alu_regs.operand2;
+						uint8 dst = alu_regs.operand2;
+						uint16 op1, op2;
+						op1 = alu_regs.operand1;
+						op2 = alu_regs.general_regs[dst];
+						tmp = op2 / op1;
+						alu_regs.general_regs[dst] = tmp;
+						if(int16(tmp) == 0)
+							setFlag(ZF);
+						if(int16(tmp < 0))
+							setFlag(SF);
+						if(uint16(tmp) >= pow(2,16))
+							setFlag(OF);
 						break;
 
 					case 0b01100111 :			//IDIV
-						tmp = alu_regs.operand1 / alu_regs.operand2;		
+						uint8 dst = alu_regs.operand2;
+						uint16 op1, op2;
+						op1 = ( alu_regs.operand1 & 0x7FFF );	// I am putting to zero the first bit
+						op2 = ( alu_regs.general_regs[dst] & 0x7FFF);
+						tmp = op2 / op1;
+
+						if(uint16(tmp) >= pow(2,15))		// The 16th bit is for the sign!
+							setFlag(OF);
+
+						uint16 sign1 = op1 & 0x8000;			// I am now only taking the bit sign
+						uint16 sign2 = op2 & 0x8000;
+						uint16 sign = sign1 ^ sign2;			// Final sign is result of xor of the operands signs
+
+						if((sign) != 0)				
+							setFlag(SF);
+
+						if(int16(tmp) == 0)
+							setFlag(ZF);
+
+						tmp = tmp | sign;		
 						break;
+
 					case 0b01101000 :			//AND
-						tmp = alu_regs.operand1 & alu_regs.operand2;
+						uint8 dst = alu_regs.operand2;
+						uint16 op1 = alu_regs.operand1;
+						uint16 op2 = alu_regs.general_regs(dst);
+
+						tmp = op1 & op2;
+
+						sign = tmp & 0x8000;
+						if(sign != 0)
+							setFlag(SF);
 						break;
+
 					case 0b01101001 :			//OR
-						tmp = alu_regs.operand1 | alu_regs.operand2;
+						uint8 dst = alu_regs.operand2;
+						uint16 op1 = alu_regs.operand1;
+						uint16 op2 = alu_regs.general_regs(dst);
+
+						tmp = op1 | op2;
+
+						sign = tmp & 0x8000;
+						if(sign != 0)
+							setFlag(SF);
 						break;
+
 					case 0b01101010 :			//SHL
 						tmp = (alu_regs.operand1 << 1);
 						break;
