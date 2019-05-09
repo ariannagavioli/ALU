@@ -1,4 +1,4 @@
-pragma once
+#pragma once
 #include <string>
 
 #include "module.h"
@@ -7,6 +7,7 @@ pragma once
 #define UINT16_MAX 	0xFFFF
 #define INT16_SGN	0x8000
 #define INT16_BITS	0x7FFF
+#define BIT_17TH 	0x10000
 
 #define INC			0b01010010
 #define DEC			0b01010011
@@ -46,5 +47,11 @@ public:
 	AluModule(string name, int priority = 0);
 	void onNotify(message* m);
 private:
-	uint18_t
+	void operate();
+	uint8_t dst;
+	uint16_t op1;
+	uint16_t op2;
+	uint16_t sign;
+	// unsigned utmp;
+	// int tmp;
 };
