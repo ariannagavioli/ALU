@@ -21,6 +21,7 @@ AluModule::AluModule(string name, int priority):module(name, priority) {
 	}
 }
 
+
 //All custom code must be called from this method
 void AluModule::onNotify(message* m) {
 	//Don't forget to check if the message was for me since we are in a broadcast environment
@@ -44,7 +45,7 @@ void AluModule::onNotify(message* m) {
 				global_regs.flag &= !(1 << ZF);	// zero flag
 				global_regs.flag &= !(1 << SF);	// sign flag
 				global_regs.flag &= !(1 << OF);	// Overflow flag
-				int tmp = 0;
+				unsigned tmp = 0;
 
 				switch(alu_regs.opcode){
 					case 0b01010010 :			// INC
@@ -67,7 +68,6 @@ void AluModule::onNotify(message* m) {
 						break;
 					case 0b01100011 :			//CMP
 						tmp = alu_regs.operand1 - alu_regs.operand2;
-
 						break;
 					case 0b01100100 :			//MUL
 						tmp = alu_regs.operand1 * alu_regs.operand2;
@@ -97,49 +97,117 @@ void AluModule::onNotify(message* m) {
 						tmp = alu_regs.operand1 >> 1;
 						break;
 					case 0b01101101 :			//SAR
-						int tmp2 = alu_regs.operand1 & 0b1000000000000000;
-						tmp = ((alu_regs.operand1 & 0b01111111111111111) >> 1);
+						int tmp2 = alu_regs.operand1 & 0x8000;
+						tmp = ((alu_regs.operand1 & 0xFFFF) >> 1);
 						tmp |= tmp2;
 						break;
 
 					/*Register - Register*/
-					case 0b10000001 :			// ADD
-						tmp = alu_regs.operand1; 
+					case 0b10000001 :			// ADD REG
+						tmp = global_regs.general_regs[alu_regs.operand1] + global_regs.general_regs[alu_regs.operand2];
+						// Checking overflow
+						if (tmp > 0xFFFF)
+							global_regs.flag |= (1 << OF);
 						break;
-					case 0b10000010 :			// SUB
-						tmp = alu_regs.operand1;
+
+					case 0b10000010 :			// SUB REG
+						tmp = global_regs.general_regs[alu_regs.operand1] - global_regs.general_regs[alu_regs.operand2];
+						if (abs(tmp) > 0xFFFF)
+							global_regs.flag |= (1 << OF);
 						break;
-					case 0b10000011 : 			// CMP
+
+					case 0b10000011 : 			// CMP REG
+						int tmpx = global_regs.general_regs[alu_regs.operand1] - global_regs.general_regs[alu_regs.operand2];
+						
+						if (abs(tmp) > pow(2, 16))
+							global_regs.flag |= (1 << OF);
+						break;
+
+					case 0b10000100 : 			// MUL REG
+						tmp = global_regs.general_regs[alu_regs.operand1] * global_regs.general_regs[alu_regs.operand2];
+						if (tmp > 0xFFFF)
+							global_regs.flag |= (1 << OF);
 
 						break;
-					case 0b10000100 : 			// MUL
+
+					case 0b10000101 :			// IMUL REG
+						unsigned tmp2 = global_regs.general_regs[alu_regs.operand1] & 0x7FFF;
+						unsigned tmp3 = global_regs.general_regs[alu_regs.operand2] & 0x7FFF;
+						unsigned sign = (global_regs.general_regs[alu_regs.operand1] & 0x8000) ^ (global_regs.general_regs[alu_regs.operand1] & 0x8000); 
+
+						tmp = tmp2 * tmp3;
+
+						if (tmp > 0xFFFF)
+							global_regs.flag |= (1 << OF);
+
+						tmp |= sign;
+						if (sign == 0x8000)
+							global_regs.flag |= (1 << SF);
 
 						break;
-					case 0b10000101 :			// IMUL
+					case 0b10000110 : 			// DIV REG
+						tmp = global_regs.general_regs[alu_regs.operand1] / global_regs.general_regs[alu_regs.operand2];
+						if (tmp > 0xFFFF)
+							global_regs.flag |= (1 << OF);
 
 						break;
-					case 0b10000110 : 			// DIV
+					case 0b10000111 :			
+						unsigned tmp2 = global_regs.general_regs[alu_regs.operand1] & 0x7FFF;
+						unsigned tmp3 = global_regs.general_regs[alu_regs.operand2] & 0x7FFF;
+						unsigned sign = (global_regs.general_regs[alu_regs.operand1] & 0x8000) ^ (global_regs.general_regs[alu_regs.operand1] & 0x8000); 
+
+						tmp = tmp2 / tmp3;
+
+						if (tmp > 0xFFFF)
+							global_regs.flag |= (1 << OF);
+
+						tmp |= sign;
+						if (sign == 0x8000)
+							global_regs.flag |= (1 << SF);
 
 						break;
-					case 0b10000111 :			// IDIV
+					case 0b10001000 : 			// AND REG
+						tmp = global_regs.general_regs[alu_regs.operand1] & global_regs.general_regs[alu_regs.operand2];
+						break;
+					case 0b10001001 : 			// OR REG
+						tmp = global_regs.general_regs[alu_regs.operand1] | global_regs.general_regs[alu_regs.operand2];
+						break;
+					case 0b10001010 : 			// SHL REG
+
+						tmp = global_regs.general_regs[alu_regs.operand1] << global_regs.general_regs[alu_regs.operand2];
+						if (tmp > 0xFFFF)
+							global_regs.flag |= (1 << OF);
 
 						break;
-					case 0b10001000 : 			// AND
+					case 0b10001011 : 			// SAL REG
+						tmp = global_regs.general_regs[alu_regs.operand1] << global_regs.general_regs[alu_regs.operand2];
+						if (tmp > 0xFFFF)
+							global_regs.flag |= (1 << OF);
+						break;
+					case 0b10001100 : 			// SHR REG
+						// alu_regs.operand1 &= 0xFF; 
+						tmp = global_regs.general_regs[alu_regs.operand1] >> global_regs.general_regs[alu_regs.operand2];
+						
+						if (tmp == 0)
+							global_regs.flag |= (1 << ZF);
 
 						break;
-					case 0b10001001 : 			// OR
+					case 0b10001101 : 			// SAR REG
+						unsigned sign = global_regs.general_regs[alu_regs.operand1] & 0x8000;
+						uint16_t tmp2 = global_regs.general_regs[alu_regs.operand2];
+						tmp = global_regs.general_regs[alu_regs.operand1];
+						
+						while (tmp2) {
+							tmp >>= 1;
+							tmp |= sign;
+							--tmp2;
+						}
+								
+						if (tmp > 0xFFFF)
+							global_regs.flag |= (1 << OF);		
 
-						break;
-					case 0b10001010 : 			// SHL
-
-						break;
-					case 0b10001011 : 			// SAL
-
-						break;
-					case 0b10001100 : 			// SHR
-
-						break;
-					case 0b10001101 : 			// SAR
+						if (tmp == 0)
+							global_regs.flag |= (1 << ZF);
 
 						break;
 				}
