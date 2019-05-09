@@ -22,20 +22,25 @@ AluModule::AluModule(string name, int priority):module(name, priority) {
 }
 
 
+
 //All custom code must be called from this method
 void AluModule::onNotify(message* m) {
 	//Don't forget to check if the message was for me since we are in a broadcast environment
 	if(m->dest == getName()){
 		string Alu = "Alu";
 		
+		
 		cout << "Message " << m->id << ": Sent at " << m->timestamp << ", current timestamp " << getTime() << ". My name is " << getName() << "." << endl;
 		
-		//Send some test messages
+		//Send some test mess
+		ages
 		if(m->timestamp < 50) {
-			if(getName() == Alu){
-				message* myMessage = new message();
-				myMessage->valid = 1;
-				myMessage->timestamp = getTime();
+			if(getName() ==
+			 Alu){
+
+			myMessage->valid =
+			 1;
+			myMessage->timestamp = getTime();
 				strcpy(myMessage->source, getName().c_str());
 				strcpy(myMessage->dest, "Fetch");
 
@@ -44,57 +49,288 @@ void AluModule::onNotify(message* m) {
 				global_regs.flag &= !(1 << CF); // carry flag
 				global_regs.flag &= !(1 << ZF);	// zero flag
 				global_regs.flag &= !(1 << SF);	// sign flag
+			
 				global_regs.flag &= !(1 << OF);	// Overflow flag
-				unsigned tmp = 0;
 
 				switch(alu_regs.opcode){
 					case 0b01010010 :			// INC
-
+						/*According to the book, the flags after this operation aren't modify */
+						uint8_t src = alu_regs.operand1;
+						global_regs.general_regs[src]++;
 						break;
+
 					case 0b01010011 : 			// DEC
-
+						/*According to the book, the flags after this operation aren't modify */
+						uint8_t src = alu_regs.operand1;
+						global_regs.general_regs[src]--;
 						break;
-					case 0b01010100 :			// NEG
 
-						break
-					case 0b01010101 :			// NOT
+					case 0b01010100 :			// NEG: two complement
+						/* Flags not specified on the book, not even operation, review operation */
+						unsigned tmp;
+						uint8_t src = alu_regs.operand1;
 
+						tmp = global_regs.general_regs[src];
+						tmp = 0 - tmp;
+						global_regs.general_regs[src] = tmp;
 						break;
+
+					case 0b01010101 :			// NOT: negate bitwise
+						unsigned tmp;
+						uint8_t src = alu_regs.operand1;
+
+						tmp = global_regs.general_regs[src];
+						tmp ~= tmp;
+						global_regs.general_regs[src] = tmp;
+						break;
+
 					case 0b01100001 :			//ADD
-						tmp = alu_regs.operand1 + alu_regs.operand2;
+						int tmp;
+						uint16_t op1, op2;
+						uint8_t dst = alu_regs.operand2;
+
+						op1 = alu_regs.operand1;
+						op2 = global_regs.general_regs[dst];
+						tmp = op1 + op2;
+						global_regs.general_regs[dst] = tmp;
+
+						if(int16_t(tmp) == 0) 
+							setFlag(ZF);
+
+						if(int16_t(tmp < 0))
+							setFlag(SF);
+
+						if(unsigned(tmp) >= pow(2,16))
+							setFlag(OF);
 						break;
+
 					case 0b01100010 :			//SUB
-						tmp = alu_regs.operand1 - alu_regs.operand2;
+						int tmp;
+						uint16_t op1, op2;
+						uint8_t dst = alu_regs.operand2;
+
+						op1 = alu_regs.operand1;
+						op2 = global_regs.general_regs[dst];
+						tmp = op2 - op1;
+						global_regs.general_regs[dst] = tmp;
+
+						if(int16_t(tmp) == 0)
+							setFlag(ZF);
+
+						if(int16_t(tmp < 0))
+							setFlag(SF);
+
+						if(unsigned(tmp) >= pow(2,16))
+							setFlag(OF);
 						break;
+
 					case 0b01100011 :			//CMP
-						tmp = alu_regs.operand1 - alu_regs.operand2;
+						int tmp;
+						uint8_t dst = alu_regs.operand2;
+						uint16_t op1, op2;
+
+						op1 = alu_regs.operand1;
+						op2 = global_regs.general_regs[dst];
+						tmp = op2 - op1;
+
+						if(int16_t(tmp) == 0)
+							setFlag(ZF);
+
+						if(int16_t(tmp < 0))
+							setFlag(SF);
+
+						if(unsigned(tmp) >= pow(2, 16))
+							setFlag(OF);
 						break;
-					case 0b01100100 :			//MUL
-						tmp = alu_regs.operand1 * alu_regs.operand2;
+
+					case 0b01100100 :			// MUL
+						unsigned tmp;
+						uint16_t op1, op2;
+						uint8_t dst = alu_regs.operand2;
+
+						op1 = alu_regs.operand1;
+						op2 = global_regs.general_regs[dst];
+						tmp = op1 * op2;
+						global_regs.general_regs[dst] = tmp;
+						
+						if(int16_t(tmp) == 0)		// According to x86 ISA, this is undefined 
+							setFlag(ZF);
+						
+						if(unsigned(tmp) >= pow(2,16))
+							setFlag(OF);
 						break;
+
 					case 0b01100101 :			//IMUL
-						tmp = alu_regs.operand1 * alu_regs.operand2;
+						unsigned tmp;
+						uint8_t dst = alu_regs.operand2;
+						uint16_t op1, op2;
+
+						op1 = alu_regs.operand1 & 0x7FFF;	// I am putting to zero the first bit
+						op2 = global_regs.general_regs[dst] & 0x7FFF;
+						tmp = op1 * op2;
+
+						if(uint16(tmp) >= pow(2,15))			// The 16th bit is for the sign!
+							setFlag(OF);
+
+						uint16_t sign1 = op1 & 0x8000;			// I am now only taking the bit sign
+						uint16_t sign2 = op2 & 0x8000;
+						uint16_t sign = sign1 ^ sign2;			// Final sign is result of xor of the operands signs
+
+						if(sign != 0)				
+							setFlag(SF);
+
+						if(int16_t(tmp) == 0)
+							setFlag(ZF);
+
+						tmp = tmp | sign;
+
+						global_regs.general_regs[dst] = int16_t(tmp);
+
 						break;
+
 					case 0b01100110 :			//DIV
-						tmp = alu_regs.operand1 / alu_regs.operand2;
+						unsigned tmp;
+						uint16_t op1, op2;
+						uint8_t dst = alu_regs.operand2;
+						
+						op1 = alu_regs.operand1;
+						op2 = global_regs.general_regs[dst];
+						tmp = op2 / op1;
+						global_regs.general_regs[dst] = tmp;
+						
+						/* x86 ISA Ref: flags are undefined  */
+						if(uint16_t(tmp) == 0)
+							setFlag(ZF);
+
+						// x86, this is undefined (every flag)
+						// if(uint16(tmp) >= pow(2,16))
+						// 	setFlag(OF);
+						/************************************/
+
 						break;
+
 					case 0b01100111 :			//IDIV
-						tmp = alu_regs.operand1 / alu_regs.operand2;		
+						unsigned tmp;
+						uint16_t op1, op2;
+						uint8_t dst = alu_regs.operand2;
+
+						op1 = alu_regs.operand1 & 0x7FFF;	// I am putting to zero the first bit
+						op2 = global_regs.general_regs[dst] & 0x7FFF;
+						tmp = op2 / op1;
+
+						if(uint16(tmp) >= pow(2,15))		// The 16th bit is for the sign!
+							setFlag(OF);
+
+						uint16_t sign1 = op1 & 0x8000;			// I am now only taking the bit sign
+						uint16_t sign2 = op2 & 0x8000;
+						uint16_t sign = sign1 ^ sign2;			// Final sign is result of xor of the operands signs
+
+						/* x86 ISA Ref: flags are undefined  */
+						if(sign != 0)				
+							setFlag(SF);
+
+						if(int16(tmp) == 0)
+							setFlag(ZF);
+						/**************************************/
+
+						tmp = tmp | sign;
+						global_regs.general_regs[dst] = int16_t(tmp);
+
 						break;
+
 					case 0b01101000 :			//AND
-						tmp = alu_regs.operand1 & alu_regs.operand2;
+						unsigned tmp;
+						uint8_t dst = alu_regs.operand2;
+						uint16_t op1 = alu_regs.operand1;
+						uint16_t op2 = global_regs.general_regs[dst];
+
+						tmp = op1 & op2;
+						global_regs.general_regs[dst] = tmp;
+						sign = tmp & 0x8000;
+						
+						if(sign != 0)
+							setFlag(SF);
+
+						if(int16_t(tmp) == 0)
+							setFlag(ZF);
 						break;
+
 					case 0b01101001 :			//OR
-						tmp = alu_regs.operand1 | alu_regs.operand2;
+						uint16_t tmp, sign;
+						uint8_t dst = alu_regs.operand2;
+						uint16_t op1 = alu_regs.operand1;
+						uint16_t op2 = alu_regs.general_regs[dst];
+
+						tmp = op1 | op2;
+						global_regs.general_regs[dst] = tmp;
+						sign = tmp & 0x8000;
+
+						if(sign != 0)
+							setFlag(SF);
+
+						if (int16_t(tmp) == 0) 
+							setFlag(ZF);
 						break;
+
 					case 0b01101010 :			//SHL
-						tmp = (alu_regs.operand1 << 1);
+						unsigned tmp, c_out;
+						uint16_t sign; 
+						uint8_t dst = alu_regs.operand2;
+						uint16_t op1 = alu_regs.operand1;
+						uint16_t op2 = alu_regs.general_regs[dst];
+
+						tmp = op2 << op1;
+						sign = tmp & 0x8000;
+						c_out = tmp & 0x10000;
+						global_regs.general_regs[dst] = tmp;
+
+						if (sign != 0)
+							setFlag(SF);
+
+						if (int16_t(tmp) == 0)
+							setFlag(ZF);
+
+						if (c_out == 0x10000)
+							setFlag(CF);
 						break;
+
 					case 0b01101011 :			//SAL
-						tmp = alu_regs.operand1 << 1;
+						unsigned tmp, c_out;
+						uint16_t sign; 
+						uint8_t dst = alu_regs.operand2;
+						uint16_t op1 = alu_regs.operand1;
+						uint16_t op2 = alu_regs.general_regs[dst];
+
+						tmp = op2 << op1;
+						sign = tmp & 0x8000;
+						c_out = tmp & 0x10000;
+						global_regs.general_regs[dst] = uint16_t(tmp);
+
+						if (sign != 0)
+							setFlag(SF);
+
+						if (int16_t(tmp) == 0)
+							setFlag(ZF);
+
+						if (c_out == 0x10000)
+							setFlag(CF);
 						break;
+
 					case 0b01101100 :			//SHR
-						tmp = alu_regs.operand1 >> 1;
+						uint16_t c_out, sign;
+						uint8_t dst = alu_regs.operand2;
+						uint16_t op1 = alu_regs.operand1;
+						uint16_t op2 = global_regs.general_regs[dst];
+
+						while (op1) {
+							c_out = op2 & 0x1;
+							op2 >>= 1;
+							op1--;
+						}
+						
+						sign = op2 & 0x8000;
+						
+						
 						break;
 					case 0b01101101 :			//SAR
 						int tmp2 = alu_regs.operand1 & 0x8000;
@@ -105,29 +341,33 @@ void AluModule::onNotify(message* m) {
 					/*Register - Register*/
 					case 0b10000001 :			// ADD REG
 						tmp = global_regs.general_regs[alu_regs.operand1] + global_regs.general_regs[alu_regs.operand2];
-						// Checking overflow
+						
 						if (tmp > 0xFFFF)
-							global_regs.flag |= (1 << OF);
+							setFlag(OF);
+
 						break;
 
 					case 0b10000010 :			// SUB REG
 						tmp = global_regs.general_regs[alu_regs.operand1] - global_regs.general_regs[alu_regs.operand2];
-						if (abs(tmp) > 0xFFFF)
-							global_regs.flag |= (1 << OF);
+						
+						if (tmp > 0xFFFF)
+							setFlag(OF);
+
 						break;
 
 					case 0b10000011 : 			// CMP REG
 						int tmpx = global_regs.general_regs[alu_regs.operand1] - global_regs.general_regs[alu_regs.operand2];
 						
 						if (abs(tmp) > pow(2, 16))
-							global_regs.flag |= (1 << OF);
+							setFlag(OF);
+
 						break;
 
 					case 0b10000100 : 			// MUL REG
 						tmp = global_regs.general_regs[alu_regs.operand1] * global_regs.general_regs[alu_regs.operand2];
 						if (tmp > 0xFFFF)
-							global_regs.flag |= (1 << OF);
-
+							setFlag(OF);
+							
 						break;
 
 					case 0b10000101 :			// IMUL REG
@@ -138,17 +378,19 @@ void AluModule::onNotify(message* m) {
 						tmp = tmp2 * tmp3;
 
 						if (tmp > 0xFFFF)
-							global_regs.flag |= (1 << OF);
+							setFlag(OF);
 
 						tmp |= sign;
+
 						if (sign == 0x8000)
-							global_regs.flag |= (1 << SF);
+							setFlag(SF);
 
 						break;
+
 					case 0b10000110 : 			// DIV REG
 						tmp = global_regs.general_regs[alu_regs.operand1] / global_regs.general_regs[alu_regs.operand2];
 						if (tmp > 0xFFFF)
-							global_regs.flag |= (1 << OF);
+							setFlag(OF);
 
 						break;
 					case 0b10000111 :			
@@ -159,11 +401,11 @@ void AluModule::onNotify(message* m) {
 						tmp = tmp2 / tmp3;
 
 						if (tmp > 0xFFFF)
-							global_regs.flag |= (1 << OF);
+							setFlag(OF);
 
 						tmp |= sign;
 						if (sign == 0x8000)
-							global_regs.flag |= (1 << SF);
+							setFlag(SF);
 
 						break;
 					case 0b10001000 : 			// AND REG
@@ -211,18 +453,6 @@ void AluModule::onNotify(message* m) {
 
 						break;
 				}
-
-				// Checking overflow
-				if (abs(tmp) > pow(2, 16))
-					global_regs.flag |= (1 << OF);
-				
-				// Checking sign
-				if (tmp < 0)
-					global_regs.flag |= (1 << SF);
-				
-				// Checking zero
-				else if (tmp == 0)
-					global_regs.flag |= (1 << ZF);
 
 				myMessage->magic_struct = NULL;
 				
