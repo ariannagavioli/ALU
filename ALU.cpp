@@ -82,6 +82,12 @@ void AluModule::onNotify(message* m) {
 						tmp = global_regs.general_regs[src];
 						tmp ~= tmp;
 						global_regs.general_regs[src] = tmp;
+
+						if(int16_t(tmp) == 0) 
+							setFlag(ZF);
+
+						if(int16_t(tmp < 0))
+							setFlag(SF);
 						break;
 
 					case 0b01100001 :			//ADD
@@ -100,8 +106,10 @@ void AluModule::onNotify(message* m) {
 						if(int16_t(tmp < 0))
 							setFlag(SF);
 
-						if(unsigned(tmp) >= pow(2,16))
+						if(unsigned(tmp) >= pow(2,16)){
 							setFlag(OF);
+							setFlag(CF);
+						}
 						break;
 
 					case 0b01100010 :			//SUB
@@ -120,8 +128,10 @@ void AluModule::onNotify(message* m) {
 						if(int16_t(tmp < 0))
 							setFlag(SF);
 
-						if(unsigned(tmp) >= pow(2,16))
+						if(unsigned(tmp) >= pow(2,16)){
 							setFlag(OF);
+							setFlag(CF);
+						}
 						break;
 
 					case 0b01100011 :			//CMP
@@ -240,6 +250,7 @@ void AluModule::onNotify(message* m) {
 
 					case 0b01101000 :			//AND
 						unsigned tmp;
+						unsigned sign;
 						uint8_t dst = alu_regs.operand2;
 						uint16_t op1 = alu_regs.operand1;
 						uint16_t op2 = global_regs.general_regs[dst];
