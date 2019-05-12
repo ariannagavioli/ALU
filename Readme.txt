@@ -1,0 +1,1 @@
+Type make to compile, then ./sim to run

@@ -2,9 +2,12 @@
 #include <iostream>
 
 #include "AluModule.h"
-
+#include "decode_registers.h"
 
 using namespace std;
+
+struct decode_registers alu_regs;
+struct global_registers global_regs;
 
 AluModule::AluModule(string name, int priority):module(name, priority) {
 	string Alu = "Alu";
@@ -61,9 +64,16 @@ void AluModule::onNotify(message* m) {
 	}
 }
 
+
+void AluModule::setFlag(unsigned flag) {
+	global_regs.flag |= (1 << flag);
+}
+
 void AluModule::operate() {
 
 	sign = 0;
+	c_out17 = 0;
+	c_out0 = 0;
 	global_regs.flag &= !(1 << CF); // carry flag
 	global_regs.flag &= !(1 << ZF);	// zero flag
 	global_regs.flag &= !(1 << SF);	// sign flag
@@ -71,40 +81,36 @@ void AluModule::operate() {
 	dst = alu_regs.operand2;
 
 	switch(alu_regs.opcode){
-		case INC :			// INC
+		case INC_OPC :			// INC
 			/*According to the book, the flags after this operation aren't modify */
-			uint8_t src = alu_regs.operand1;
-			global_regs.general_regs[src]++;
+			src = alu_regs.operand1;
+			global_regs.general_regs[src]++;	// Increment in 1
 			break;
 
-		case DEC : 			// DEC
+		case DEC_OPC : 			// DEC
 			/*According to the book, the flags after this operation aren't modify */
-			uint8_t src = alu_regs.operand1;
-			global_regs.general_regs[src]--;
+			src = alu_regs.operand1;
+			global_regs.general_regs[src]--;	// Decrement in 1
 			break;
 
-		case NEG :			// NEG: two complement
-			/* Flags not specified on the book, not even operation, review operation */
-			unsigned tmp;
-			uint8_t src = alu_regs.operand1;
+		case NEG_OPC :			// NEG: two complement
+			/*Flags not specified on the book, not even operation, review operation */
+			src = alu_regs.operand1;			
 
-			tmp = global_regs.general_regs[src];
-			tmp = 0 - tmp;
-			global_regs.general_regs[src] = tmp;
+			tmp16 = global_regs.general_regs[src];
+			tmp16 = -tmp16;						
+			global_regs.general_regs[src] = tmp16;
 			break;
 
-		case NOT :			// NOT: negate bitwise
-			unsigned tmp;
-			uint8_t src = alu_regs.operand1;
+		case NOT_OPC :			// NOT: negate bitwise
+			src = alu_regs.operand1;
 
-			tmp = global_regs.general_regs[src];
-			tmp ~= tmp;
-			global_regs.general_regs[src] = tmp;
+			tmp16 = global_regs.general_regs[src];
+			tmp16 = ~tmp16;
+			global_regs.general_regs[src] = tmp16;
 			break;
 
-		case ADD :			//ADD
-			int tmp;
-
+		case ADD_OPC :			//ADD
 			op1 = alu_regs.operand1;
 			op2 = global_regs.general_regs[dst];
 			tmp = op1 + op2;
@@ -120,9 +126,7 @@ void AluModule::operate() {
 				setFlag(OF);
 			break;
 
-		case SUB :			//SUB
-			int tmp;
-
+		case SUB_OPC :			//SUB
 			op1 = alu_regs.operand1;
 			op2 = global_regs.general_regs[dst];
 			tmp = op2 - op1;
@@ -138,9 +142,7 @@ void AluModule::operate() {
 				setFlag(OF);
 			break;
 
-		case CMP :			//CMP
-			int tmp;
-
+		case CMP_OPC :			//CMP
 			op1 = alu_regs.operand1;
 			op2 = global_regs.general_regs[dst];
 			tmp = op2 - op1;
@@ -155,181 +157,162 @@ void AluModule::operate() {
 				setFlag(OF);
 			break;
 
-		case MUL :			// MUL
-			unsigned tmp;
-
+		case MUL_OPC :			// MUL
 			op1 = alu_regs.operand1;
 			op2 = global_regs.general_regs[dst];
-			tmp = op1 * op2;
-			global_regs.general_regs[dst] = tmp;
+			utmp = op1 * op2;
+			global_regs.general_regs[dst] = utmp;
 			
-			if(int16_t(tmp) == 0)		// According to x86 ISA, this is undefined 
+			if(int16_t(utmp) == 0)		// According to x86 ISA, this is undefined 
 				setFlag(ZF);
 			
-			if(uint16_t(tmp) > UINT16_MAX)
+			if(uint16_t(utmp) > UINT16_MAX)
 				setFlag(OF);
 			break;
 
-		case IMUL :			//IMUL
-			unsigned tmp;
-
+		case IMUL_OPC :			//IMUL
 			op1 = alu_regs.operand1;						// Cast to unsigned 15 bits 
 			op2 = global_regs.general_regs[dst];
 			sign = (op1 & INT16_SGN) ^ (op2 & INT16_SGN);	// Final sign is result of xor of the operands signs
-			op1 &= INT16_BITS;
-			op2 &= INT16_BITS;
+			op1 = abs(int16_t(op1));									// in absolute value, the product of two numbers are
+			op2 = abs(int16_t(op2));									// the same
+			utmp = op1 * op2;
 
-			tmp = op1 * op2;
-
-			if(uint16_t(tmp) >= INT16_BITS)					// The MSB
+			if(uint16_t(utmp) >= INT16_BITS)					// The MSB
 				setFlag(OF);
 
-			if(sign)				
+			if(sign){				
 				setFlag(SF);
-
-			if(int16_t(tmp) == 0)
+				utmp = -utmp;
+			}
+			if(int16_t(utmp) == 0)
 				setFlag(ZF);
 
-			tmp = tmp | sign;
-			global_regs.general_regs[dst] = int16_t(tmp);
+			global_regs.general_regs[dst] = int16_t(utmp);
 
 			break;
 
-		case DIV :			//DIV
-			unsigned tmp;
-			
+		case DIV_OPC :			//DIV
 			op1 = alu_regs.operand1;
 			op2 = global_regs.general_regs[dst];
-			tmp = op2 / op1;
-			global_regs.general_regs[dst] = tmp;
+			utmp = op2 / op1;
+			global_regs.general_regs[dst] = utmp;
 			
 			/* x86 ISA Ref: flags are undefined  */
-			if(uint16_t(tmp) == 0)
+			if(uint16_t(utmp) == 0)
 				setFlag(ZF);
 
 			// x86, this is undefined (every flag)
-			// if(uint16(tmp) >= UINT16_MAX)
+			// if(uint16(utmp) >= UINT16_MAX)
 			// 	setFlag(OF);
 			/************************************/
 
 			break;
 
-		case IDIV :			//IDIV
-			unsigned tmp;
-
+		case IDIV_OPC :			//IDIV
 			op1 = alu_regs.operand1;						// I am putting to zero the first bit
 			op2 = global_regs.general_regs[dst];
 			sign = (op1 & INT16_SGN) ^ (op2 & INT16_SGN);	// Final sign is result of xor of the operands signs
 
-			op1 &= INT16_BITS;
-			op2 &= INT16_BITS;
+			op1 = abs(int16_t(op1));
+			op2 = abs(int16_t(op2));
 
-			tmp = op2 / op1;
+			utmp = op2 / op1;
 
-			if(uint16_t(tmp) > INT16_BITS)					// The 16th bit is for the sign!
+			if(uint16_t(utmp) > INT16_BITS)					// The 16th bit is for the sign!
 				setFlag(OF);
 
-			/* x86 ISA Ref: flags are undefined  */
-			if(sign)				
+			/** x86 ISA Ref: flags are undefined **/
+			if(sign) {				
 				setFlag(SF);
-
-			if(int16(tmp) == 0)
+				utmp = -utmp;
+			}
+			if(int16(utmp) == 0)
 				setFlag(ZF);
 			/**************************************/
 
-			tmp = tmp | sign;
-			global_regs.general_regs[dst] = int16_t(tmp);
+			global_regs.general_regs[dst] = int16_t(utmp);
 
 			break;
 
-		case AND :			//AND
-			uint16_t tmp;
-
+		case AND_OPC :			//AND
 			op1 = alu_regs.operand1;
 			op2 = global_regs.general_regs[dst];
-			tmp = op1 & op2;
-			global_regs.general_regs[dst] = tmp;
-			sign = tmp & INT16_SGN;
+			tmp16 = op1 & op2;
+			global_regs.general_regs[dst] = tmp16;
+			sign = tmp16 & INT16_SGN;
 			
 			if(sign)
 				setFlag(SF);
 
-			if(tmp == 0)
+			if(tmp16 == 0)
 				setFlag(ZF);
 			break;
 
-		case OR :			//OR
-			uint16_t tmp, sign;
-			
+
+		case OR_OPC :			//OR
 			op1 = alu_regs.operand1;
-			op2 = alu_regs.general_regs[dst];
-			tmp = op1 | op2;
-			global_regs.general_regs[dst] = tmp;
-			sign = tmp & INT16_SGN;
+			op2 = global_regs.general_regs[dst];
+			tmp16 = op1 | op2;
+			global_regs.general_regs[dst] = tmp16;
+			sign = tmp16 & INT16_SGN;
 
 			if(sign)
 				setFlag(SF);
 
-			if (tmp == 0) 
+			if (tmp16 == 0) 
 				setFlag(ZF);
 			break;
 
-		case SHL :			//SHL
-			unsigned tmp, c_out;
-			uint16_t sign; 
-			
-			op1 = alu_regs.operand1;
-			op2 = alu_regs.general_regs[dst];
-			tmp = op2 << op1;
-			sign = tmp & INT16_SGN;
-			c_out = tmp & BIT_17TH;
-			global_regs.general_regs[dst] = tmp;
-
-			if (sign != 0)
-				setFlag(SF);
-
-			if (int16_t(tmp) == 0)
-				setFlag(ZF);
-
-			if (c_out == BIT_17TH)
-				setFlag(CF);
-			break;
-
-		case SAL :			//SAL
-			unsigned tmp, c_out;
-			uint16_t sign; 
-
-			op1 = alu_regs.operand1;
-			op2 = alu_regs.general_regs[dst];
-			tmp = op2 << op1;
-			sign = tmp & INT16_SGN;
-			c_out = tmp & BIT_17TH;
-			global_regs.general_regs[dst] = uint16_t(tmp);
-
-			if (sign != 0)
-				setFlag(SF);
-
-			if (int16_t(tmp) == 0)
-				setFlag(ZF);
-
-			if (c_out == BIT_17TH)
-				setFlag(CF);
-			break;
-
-		case SHR :			//SHR
-			uint16_t c_out, sign;
-			
+		case SHL_OPC :			//SHL
 			op1 = alu_regs.operand1;
 			op2 = global_regs.general_regs[dst];
+			utmp = op2 << op1;
+			sign = utmp & INT16_SGN;
+			c_out17 = utmp & BIT_17TH;
+			global_regs.general_regs[dst] = utmp;
 
+			if (sign != 0)
+				setFlag(SF);
+
+			if (int16_t(utmp) == 0)
+				setFlag(ZF);
+
+			if (c_out17 == BIT_17TH)
+				setFlag(CF);
+			break;
+
+		case SAL_OPC :			//SAL
+			op1 = alu_regs.operand1;
+			op2 = global_regs.general_regs[dst];
+			utmp = op2 << op1;
+			sign = utmp & INT16_SGN;
+			c_out17 = utmp & BIT_17TH;
+			global_regs.general_regs[dst] = uint16_t(utmp);
+
+			if (sign != 0)
+				setFlag(SF);
+
+			if (int16_t(utmp) == 0)
+				setFlag(ZF);
+
+			if (c_out17 == BIT_17TH)
+				setFlag(CF);
+			break;
+
+		case SHR_OPC :			//SHR
+			op1 = alu_regs.operand1;
+			op2 = global_regs.general_regs[dst];
+			sign = op2 & INT16_SGN;
+			
 			while (op1) {
-				c_out = op2 & 1;
+				c_out0 = op2 & 1;
 				op2 >>= 1;
 				op1--;
 			}
 			
 			sign = op2 & INT16_SGN;
-			global_regs.general_regs[dst] = tmp;
+			global_regs.general_regs[dst] = op2;
 
 			if (sign) 
 				setFlag(SF);
@@ -337,21 +320,36 @@ void AluModule::operate() {
 			if (op2 == 0)
 				setFlag(ZF);
 
-			if (c_out)
+			if (c_out0)
 				setFlag(CF);
 
 			break;
 		
-		case SAR :			//SAR
-			int tmp2 = alu_regs.operand1 & INT16_SGN;
-			tmp = ((alu_regs.operand1 & UINT16_MAX) >> 1);
-			tmp |= tmp2;
+		case SAR_OPC :			//SAR
+			op1 = alu_regs.operand1;
+			op2 = global_regs.general_regs[dst];
+
+			while(op1) {
+				c_out0 = op2 & 1;
+				op2 >> 1;
+				op2 |= sign;
+				op1--;
+			}
+			sign = op2 & INT16_SGN;
+			global_regs.general_regs[dst] = op2;
+			
+			if(sign)
+				setFlag(SF);
+			
+			if(op2 == 0)
+				setFlag(ZF);
+			
+			if(c_out0)
+				setFlag(CF);
 			break;
 
 		/*Register - Register*/
-		case ADD_REG :			// ADD REG
-			int tmp;
-
+		case ADD_REG_OPC :			// ADD REG
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
 			tmp = op1 + op2;
@@ -368,9 +366,7 @@ void AluModule::operate() {
 
 			break;
 
-		case SUB_REG :			// SUB REG
-			int tmp;
-			
+		case SUB_REG_OPC :			// SUB REG
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
 			tmp = op2 - op1;
@@ -386,9 +382,7 @@ void AluModule::operate() {
 				setFlag(OF);
 			break;
 
-		case CMP_REG : 			// CMP REG
-			int tmp; 
-
+		case CMP_REG_OPC : 			// CMP REG
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
 			tmp = op2 - op1;
@@ -404,171 +398,157 @@ void AluModule::operate() {
 
 			break;
 
-		case MUL_REG : 			// MUL REG
-			unsigned tmp;
-			
+		case MUL_REG_OPC : 			// MUL REG
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
-			tmp = op1 * op2;
-			global_regs.general_regs[dst] = tmp;
+			utmp = op1 * op2;
+			global_regs.general_regs[dst] = utmp;
 
-			if(int16_t(tmp) == 0)
+			if(int16_t(utmp) == 0)
 				setFlag(ZF);
 
-			if (uint16_t(tmp) > UINT16_MAX)
+			if (uint16_t(utmp) > UINT16_MAX)
 				setFlag(OF);				
 			break;
 
-		case IMUL_REG :			// IMUL REG
-			unsigned tmp;
-
+		case IMUL_REG_OPC :			// IMUL REG
 			op1 = global_regs.general_regs[alu_regs.operand1];
-			op2 = global_regs.general_regs[dst]
+			op2 = global_regs.general_regs[dst];
 			sign = (op1 & INT16_SGN) ^ (op2 & INT16_SGN); 
 
-			op1 &= INT16_BITS;
-			op2 &= INT16_BITS;
+			op1 = abs(int16_t(op1));
+			op2 = abs(int16_t(op2));
 
-			tmp = op1 * op2;
+			utmp = op1 * op2;
 
-			if (uint16_t(tmp) > INT16_BITS)
+			if (uint16_t(utmp) > INT16_BITS)
 				setFlag(OF);
 
-			if (sign)
+			if (sign) {
 				setFlag(SF);
+				utmp = -utmp;
+			}
 
-			if(int16_t(tmp) == 0)
+			if(int16_t(utmp) == 0)
 				setFlag(ZF);
 
-			tmp |= sign;
-			global_regs.general_regs[dst] = int16_t(tmp);
+			global_regs.general_regs[dst] = int16_t(utmp);
 
 			break;
 
-		case DIV_REG : 			// DIV REG
-			unsigned tmp;
-
-			op1 = global_regs.general_regs[alu_regs.operand1]
+		case DIV_REG_OPC : 			// DIV REG
+			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
-			tmp = op2 / op1;
-			global_regs.general_regs[dst] = tmp;
+			utmp = op2 / op1;
+			global_regs.general_regs[dst] = utmp;
 
-			if (uint16_t(tmp) == 0)
-				setFlag(zF);
+			if (uint16_t(utmp) == 0)
+				setFlag(ZF);
 			break;
 
-		case IDIV_REG :			// IDIV_REG	
-			unsigned tmp;
-
+		case IDIV_REG_OPC :			// IDIV_REG	
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
 			sign = (op1 & INT16_SGN) ^ (op2 & INT16_SGN); 
 
-			op1 &= INT16_BITS;
-			op2 &= INT16_BITS;
+			op1 = abs(int16_t(op1));
+			op2 = abs(int16_t(op2));
 
-			tmp = op2 / op1;
+			utmp = op2 / op1;
 
-			if (uint16_t(tmp) > UINT16_MAX)
+			if (uint16_t(utmp) > UINT16_MAX)
 				setFlag(OF);
 
-			if (sign)
+			if (sign) {
 				setFlag(SF);
+				utmp = -utmp;
+			}
 
-			if(int16_t(tmp) == 0)
-				setFlag(ZF)
+			if(int16_t(utmp) == 0)
+				setFlag(ZF);
 
-			tmp |= sign;
-			global_regs.general_regs[dst] = int16_t(tmp);
+			global_regs.general_regs[dst] = int16_t(utmp);
 
 			break;
 		
-		case AND_REG : 			// AND REG
-			uint16_t tmp;
-
+		case AND_REG_OPC : 			// AND REG
 			op1 = global_regs.general_regs[alu_regs.operand1];
-			op2 = global_regs.general_regs[dst] 
-			tmp = op1 & op2;
-			global_regs.general_regs[dst] = tmp;
-			sign = tmp & INT16_SGN;
+			op2 = global_regs.general_regs[dst]; 
+			tmp16 = op1 & op2;
+			global_regs.general_regs[dst] = tmp16;
+			sign = tmp16 & INT16_SGN;
 
 			if(sign)
 				setFlag(SF);
 
-			if(tmp == 0)
+			if(tmp16 == 0)
 				setFlag(ZF);
 
 			break;
 		
-		case OR_REG : 			// OR REG
-			unsigned tmp;
-			op1 = global_regs.general_regs[alu_regs.operand1]
-			op2 = global_regs.general_regs[dst];
-			tmp = op1 | op2;
-			global_regs.general_regs[dst] = tmp;
-			sign = tmp & INT16_SGN;
-
-			if (sign)
-				setFlag(SF);
-
-			if(tmp == 0)
-				setFlag(ZF);
-
-			break;
-		
-		case SHL_REG : 			// SHL REG
-			unsigned tmp, c_out;
-
+		case OR_REG_OPC : 			// OR REG
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
-			tmp = op2 << op1;
-			sign = tmp & INT16_SGN;
-			c_out = tmp & BIT_17TH;
-			global_regs.general_regs[dst] = tmp;
+			utmp = op1 | op2;
+			global_regs.general_regs[dst] = utmp;
+			sign = utmp & INT16_SGN;
 
 			if (sign)
 				setFlag(SF);
 
-			if (int16_t(tmp) == 0)
+			if(utmp == 0)
 				setFlag(ZF);
 
-			if(c_out == BIT_17TH)
+			break;
+		
+		case SHL_REG_OPC : 			// SHL REG
+			op1 = global_regs.general_regs[alu_regs.operand1];
+			op2 = global_regs.general_regs[dst];
+			utmp = op2 << op1;
+			sign = utmp & INT16_SGN;
+			c_out17 = utmp & BIT_17TH;
+			global_regs.general_regs[dst] = utmp;
+
+			if (sign)
+				setFlag(SF);
+
+			if (int16_t(utmp) == 0)
+				setFlag(ZF);
+
+			if(c_out17 == BIT_17TH)
 				setFlag(CF);
 
 			break;
 		
-		case SAL_REG : 			// SAL REG
-			unsigned tmp, c_out;
-
+		case SAL_REG_OPC : 			// SAL REG
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
-			tmp = op2 << op1;
-			sign = tmp & INT16_SGN;
-			c_out = tmp & BIT_17TH;
-			global_regs.general_regs[dst] = tmp;
+			utmp = op2 << op1;
+			sign = utmp & INT16_SGN;
+			c_out17 = utmp & BIT_17TH;
+			global_regs.general_regs[dst] = utmp;
 
 			if (sign)
 				setFlag(SF);
 
-			if (int16_t(tmp) == 0)
+			if (int16_t(utmp) == 0)
 				setFlag(ZF);
 
-			if(c_out == BIT_17TH)
+			if(c_out17 == BIT_17TH)
 				setFlag(CF);
 			break;
 		
-		case SHR_REG : 			// SHR REG
-			uint16_t c_out;
+		case SHR_REG_OPC : 			// SHR REG
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
 			
 			while(op1) {
-				c_out = op2 & 1;
+				c_out0 = op2 & 1;
 				op2 >>= 1;
 				op1--;
 			}
 			sign = op2 & INT16_SGN;
-			global_regs.general_regs[dst] = tmp;
+			global_regs.general_regs[dst] = op2;
 
 			if(sign)
 				setFlag(SF);
@@ -576,32 +556,35 @@ void AluModule::operate() {
 			if(op2 == 0)
 				setFlag(ZF);
 
-			if(c_out)
+			if(c_out0)
 				setFlag(CF);
 
 			break;
 		
-		case SAR_REG : 			// SAR REG
+		case SAR_REG_OPC : 			// SAR REG
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
-			sign = op1 & INT16_SGN;
+			sign = op2 & INT16_SGN;
 			
 			while (op1) {
-				c_out = op2 & 1;
+				c_out0 = op2 & 1;
 				op2 >>= 1;
 				op2 |= sign;
 				op1--;
 			}
 
+			sign = op2 & INT16_SGN;
+			global_regs.general_regs[dst] = op2;
+			
 			if(sign)
 				setFlag(SF);
 
 			if(op2 == 0)
 				setFlag(ZF);
 
-			if (c_out)
+			if (c_out0)
 				setFlag(CF);
-			
+			// cout << "@ " << int(alu_regs.opcode) << " DST " << int16_t(global_regs.general_regs[dst]) << endl; 	
 			break;
 	}	
 }
