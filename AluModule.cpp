@@ -85,12 +85,24 @@ void AluModule::operate() {
 			/*According to the book, the flags after this operation aren't modify */
 			src = alu_regs.operand1;
 			global_regs.general_regs[src]++;	// Increment in 1
+			tmp16s = global_regs.general_regs[src];
+
+			if(tmp16s == 0)
+				setFlag(ZF);
+			if(tmp16s < 0)
+				setFlag(SF);
 			break;
 
 		case DEC_OPC : 			// DEC
 			/*According to the book, the flags after this operation aren't modify */
 			src = alu_regs.operand1;
 			global_regs.general_regs[src]--;	// Decrement in 1
+			tmp16s = global_regs.general_regs[src];
+
+			if(tmp16s == 0)
+				setFlag(ZF);
+			if(tmp16s < 0)
+				setFlag(SF);
 			break;
 
 		case NEG_OPC :			// NEG: two complement
@@ -98,8 +110,18 @@ void AluModule::operate() {
 			src = alu_regs.operand1;			
 
 			tmp16 = global_regs.general_regs[src];
+
+			if(tmp16 == 0)
+				setFlag(CF);
+
 			tmp16 = -tmp16;						
 			global_regs.general_regs[src] = tmp16;
+			tmp16s = tmp16;
+
+			if(tmp16 == 0)
+				setFlag(ZF);
+			if(tmp16s < 0)
+				setFlag(SF);
 			break;
 
 		case NOT_OPC :			// NOT: negate bitwise
@@ -122,8 +144,12 @@ void AluModule::operate() {
 			if(int16_t(tmp < 0))
 				setFlag(SF);
 
-			if(unsigned(tmp) > UINT16_MAX)
-				setFlag(OF);
+			if(op1 && INT16_SGN == op2 && INT16_SGN)		// operands have the same sing
+				if(op1 && INT16_SGN != tmp && INT16_SGN)	// result has different sign
+					setFlag(OF);
+
+			if(unsigned(tmp) < op1 || unsigned(tmp) < op2)
+				setFlag(CF);
 			break;
 
 		case SUB_OPC :			//SUB
@@ -138,8 +164,12 @@ void AluModule::operate() {
 			if(int16_t(tmp < 0))
 				setFlag(SF);
 
-			if(uint16_t(tmp) > UINT16_MAX)
-				setFlag(OF);
+			if(op1 && INT16_SGN |= op2 && INT16_SGN)		// operands have different sign
+				if(tmp && INT16_SGN != op1 && INT16_SGN)	// result has different sign than op1
+					setFlag(OF);
+
+			if(unsigned(tmp) > op1)
+				setFlag(CF);
 			break;
 
 		case CMP_OPC :			//CMP
@@ -150,11 +180,15 @@ void AluModule::operate() {
 			if(int16_t(tmp) == 0)
 				setFlag(ZF);
 
-			if(int16_t(tmp) < 0)
+			if(int16_t(tmp < 0))
 				setFlag(SF);
 
-			if(uint16_t(tmp) >= UINT16_MAX)
-				setFlag(OF);
+			if(op1 && INT16_SGN |= op2 && INT16_SGN)		// operands have different sign
+				if(tmp && INT16_SGN != op1 && INT16_SGN)	// result has different sign than op1
+					setFlag(OF);
+
+			if(unsigned(tmp) > op1)
+				setFlag(CF);
 			break;
 
 		case MUL_OPC :			// MUL
@@ -163,11 +197,10 @@ void AluModule::operate() {
 			utmp = op1 * op2;
 			global_regs.general_regs[dst] = utmp;
 			
-			if(int16_t(utmp) == 0)		// According to x86 ISA, this is undefined 
-				setFlag(ZF);
-			
-			if(uint16_t(utmp) > UINT16_MAX)
+			if(utmp > UINT16_MAX){
 				setFlag(OF);
+				setFlag(CF);
+			}
 			break;
 
 		case IMUL_OPC :			//IMUL
@@ -176,20 +209,18 @@ void AluModule::operate() {
 			sign = (op1 & INT16_SGN) ^ (op2 & INT16_SGN);	// Final sign is result of xor of the operands signs
 			op1 = abs(int16_t(op1));									// in absolute value, the product of two numbers are
 			op2 = abs(int16_t(op2));									// the same
+			
 			utmp = op1 * op2;
 
-			if(uint16_t(utmp) >= INT16_BITS)					// The MSB
-				setFlag(OF);
-
-			if(sign){				
-				setFlag(SF);
+			if(sign)
 				utmp = -utmp;
-			}
-			if(int16_t(utmp) == 0)
-				setFlag(ZF);
-
+			
 			global_regs.general_regs[dst] = int16_t(utmp);
-
+			
+			if(utmp >= INT16_BITS){
+				setFlag(OF);
+				setFlag(CF);
+			}			
 			break;
 
 		case DIV_OPC :			//DIV
@@ -197,16 +228,6 @@ void AluModule::operate() {
 			op2 = global_regs.general_regs[dst];
 			utmp = op2 / op1;
 			global_regs.general_regs[dst] = utmp;
-			
-			/* x86 ISA Ref: flags are undefined  */
-			if(uint16_t(utmp) == 0)
-				setFlag(ZF);
-
-			// x86, this is undefined (every flag)
-			// if(uint16(utmp) >= UINT16_MAX)
-			// 	setFlag(OF);
-			/************************************/
-
 			break;
 
 		case IDIV_OPC :			//IDIV
@@ -219,17 +240,8 @@ void AluModule::operate() {
 
 			utmp = op2 / op1;
 
-			if(uint16_t(utmp) > INT16_BITS)					// The 16th bit is for the sign!
-				setFlag(OF);
-
-			/** x86 ISA Ref: flags are undefined **/
-			if(sign) {				
-				setFlag(SF);
+			if(sign)
 				utmp = -utmp;
-			}
-			if(int16(utmp) == 0)
-				setFlag(ZF);
-			/**************************************/
 
 			global_regs.general_regs[dst] = int16_t(utmp);
 
