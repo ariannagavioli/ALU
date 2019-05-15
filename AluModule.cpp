@@ -85,7 +85,7 @@ void AluModule::operate() {
 		case INC_OPC :			// INC
 			/*According to the book, the flags after this operation aren't modify */
 			src = alu_regs.operand1;
-			global_regs.general_regs[src]++;	// Increment in 1
+			global_regs.general_regs[src]++;
 			tmp16s = global_regs.general_regs[src];
 
 			if(tmp16s == 0)
@@ -97,7 +97,7 @@ void AluModule::operate() {
 		case DEC_OPC : 			// DEC
 			/*According to the book, the flags after this operation aren't modify */
 			src = alu_regs.operand1;
-			global_regs.general_regs[src]--;	// Decrement in 1
+			global_regs.general_regs[src]--;
 			tmp16s = global_regs.general_regs[src];
 
 			if(tmp16s == 0)
@@ -111,9 +111,6 @@ void AluModule::operate() {
 			
 			src = alu_regs.operand1;			
 			tmp16 = global_regs.general_regs[src];
-
-			cout << global_regs.general_regs[src] <<
-			" " << bitset<16>(global_regs.general_regs[src]) << endl;
 
 			if(tmp16 == INT16_SGN) {
 				setFlag(OF);
@@ -217,8 +214,8 @@ void AluModule::operate() {
 			op1 = alu_regs.operand1;						// Cast to unsigned 15 bits 
 			op2 = global_regs.general_regs[dst];
 			sign = (op1 & INT16_SGN) ^ (op2 & INT16_SGN);	// Final sign is result of xor of the operands signs
-			op1 = abs(int16_t(op1));									// in absolute value, the product of two numbers are
-			op2 = abs(int16_t(op2));									// the same
+			op1 = abs(int16_t(op1));						// in absolute value, the product of two numbers are
+			op2 = abs(int16_t(op2));						// the same
 			
 			utmp = op1 * op2;
 			
@@ -229,8 +226,12 @@ void AluModule::operate() {
 
 			if(sign)
 				utmp = -utmp;
-			
-			global_regs.general_regs[dst] = int16_t(utmp);
+
+			if (utmp > UINT16_MAX){
+				global_regs.general_regs[dst] = utmp & UINT16_MAX;
+				// global_regs.general_regs[dst + 1] = utmp >> 16; 
+			} else
+				global_regs.general_regs[dst] = int16_t(utmp);
 			
 			break;
 
