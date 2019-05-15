@@ -112,6 +112,9 @@ void AluModule::operate() {
 			src = alu_regs.operand1;			
 			tmp16 = global_regs.general_regs[src];
 
+			cout << global_regs.general_regs[src] <<
+			" " << bitset<16>(global_regs.general_regs[src]) << endl;
+
 			if(tmp16 == INT16_SGN) {
 				setFlag(OF);
 				break;
@@ -218,8 +221,8 @@ void AluModule::operate() {
 			op2 = abs(int16_t(op2));									// the same
 			
 			utmp = op1 * op2;
-
-			if(utmp > UINT16_MAX){
+			
+			if(utmp > INT16_BITS){
 				setFlag(OF);
 				setFlag(CF);
 			}
@@ -603,6 +606,6 @@ void AluModule::operate() {
 	cout << "Result DEC\t" << int16(global_regs.general_regs[dst]) << endl;
 	cout << "Result U DEC\t" << uint16_t(global_regs.general_regs[dst]) << endl;
 	cout << "Result BIN\t" << bitset<16>(global_regs.general_regs[dst]) << endl;
-	cout << "Flags\t" << bitset<16>(global_regs.flag) << endl;
+	cout << "Flags\t\t" << bitset<16>(global_regs.flag) << endl;
 	cout << "++++++++++++++++++++++++++++++++++++++++++++++++" << endl;
 }
