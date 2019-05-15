@@ -144,8 +144,8 @@ void AluModule::operate() {
 			if(int16_t(tmp < 0))
 				setFlag(SF);
 
-			if(op1 && INT16_SGN == op2 && INT16_SGN)		// operands have the same sing
-				if(op1 && INT16_SGN != tmp && INT16_SGN)	// result has different sign
+			if((op1 & INT16_SGN) == (op2 & INT16_SGN))		// operands have the same sing
+				if(op1 & INT16_SGN != tmp & INT16_SGN)	// result has different sign
 					setFlag(OF);
 
 			if(unsigned(tmp) < op1 || unsigned(tmp) < op2)
@@ -164,7 +164,7 @@ void AluModule::operate() {
 			if(int16_t(tmp < 0))
 				setFlag(SF);
 
-			if(op1 && INT16_SGN |= op2 && INT16_SGN)		// operands have different sign
+			if(op1 && INT16_SGN != op2 && INT16_SGN)		// operands have different sign
 				if(tmp && INT16_SGN != op1 && INT16_SGN)	// result has different sign than op1
 					setFlag(OF);
 
@@ -187,7 +187,7 @@ void AluModule::operate() {
 				if(tmp && INT16_SGN != op1 && INT16_SGN)	// result has different sign than op1
 					setFlag(OF);
 
-			if(unsigned(tmp) > op1)
+			if(uint16_t(tmp) > op1)
 				setFlag(CF);
 			break;
 
@@ -212,15 +212,16 @@ void AluModule::operate() {
 			
 			utmp = op1 * op2;
 
+			if(utmp > UINT16_MAX){
+				setFlag(OF);
+				setFlag(CF);
+			}
+
 			if(sign)
 				utmp = -utmp;
 			
 			global_regs.general_regs[dst] = int16_t(utmp);
 			
-			if(utmp >= INT16_BITS){
-				setFlag(OF);
-				setFlag(CF);
-			}			
 			break;
 
 		case DIV_OPC :			//DIV
@@ -284,7 +285,7 @@ void AluModule::operate() {
 			c_outMSB = utmp & BIT_17TH;
 			global_regs.general_regs[dst] = utmp;
 
-			if (sign != 0)
+			if (sign)
 				setFlag(SF);
 
 			if (int16_t(utmp) == 0)
@@ -302,13 +303,13 @@ void AluModule::operate() {
 			c_outMSB = utmp & BIT_17TH;
 			global_regs.general_regs[dst] = uint16_t(utmp);
 
-			if (sign != 0)
+			if (sign)
 				setFlag(SF);
 
 			if (int16_t(utmp) == 0)
 				setFlag(ZF);
 
-			if (c_outMSB == BIT_17TH)
+			if (c_outMSB)
 				setFlag(CF);
 			break;
 
@@ -373,8 +374,12 @@ void AluModule::operate() {
 			if(int16_t(tmp) < 0)
 				setFlag(SF);
 
-			if (uint16_t(tmp) > UINT16_MAX)
-				setFlag(OF);
+			if((op1 & INT16_SGN) == (op2 & INT16_SGN))
+				if((op1 & INT16_SGN) != (tmp & INT16_SGN))
+					setFlag(OF);
+			
+			if((unsigned(tmp) < op1) || (unsigned(tmp) < op2))
+				setFlag(CF);				
 
 			break;
 
@@ -390,8 +395,9 @@ void AluModule::operate() {
 			if(int16_t(tmp) < 0)
 				setFlag(SF);
 
-			if(uint16_t(tmp) > UINT16_MAX)
-				setFlag(OF);
+			if((op1 & INT16_SGN) != (op2 & INT16_SGN))
+				if((tmp & INT16_SGN) != (op1 & INT16_SGN))
+					setFlag(OF);
 			break;
 
 		case CMP_REG_OPC : 			// CMP REG
@@ -399,17 +405,15 @@ void AluModule::operate() {
 			op2 = global_regs.general_regs[dst];
 			tmp = op2 - op1;
 			
+			if (uint16_t(tmp) == 0)
+				setFlag(ZF);
 			
 			if (int16_t(tmp) < 0)
 				setFlag(SF);
 
-			if (uint16_t(tmp) == 0)
-				setFlag(ZF);
-
-			sign = (op1 & INT16_SGN) ^ (op2 & INT16_SGN);
-
-			if (sign ^ (uint16_t(tmp) & INT16_SGN))
-				setFlag(OF);
+			if ((op1 & INT16_SGN) != (op2 & INT16_SGN))
+				if((tmp & INT16_SGN) != (op1 & INT16_SGN))
+					setFlag(OF);
 
 			if(uint16_t(tmp) > op1)
 				setFlag(CF);
