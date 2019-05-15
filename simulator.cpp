@@ -3,6 +3,7 @@
 #include "AluModule.h"
 
 #include <iostream>
+#include <bitset>
 #include "decode_registers.h"
 using namespace std;
 
@@ -15,8 +16,9 @@ int main() {
 	uint8_t dst = 4;
 	
 	global_regs.general_regs[dst] = -3072;
+	cout << "Initial binary" << bitset<16>(global_regs.general_regs[dst]) << endl;
 
-	alu_regs.opcode = SAR_REG_OPC;
+	alu_regs.opcode = IDIV_OPC;
 	alu_regs.operand1 = 2;
 
 	global_regs.general_regs[alu_regs.operand1] = 5;

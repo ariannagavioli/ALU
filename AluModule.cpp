@@ -1,5 +1,6 @@
 #include <cstring>
 #include <iostream>
+#include <bitset>
 
 #include "AluModule.h"
 #include "decode_registers.h"
@@ -32,7 +33,7 @@ void AluModule::onNotify(message* m) {
 		string Alu = "Alu";
 		
 		
-		cout << "Message " << m->id << ": Sent at " << m->timestamp << ", current timestamp " << getTime() << ". My name is " << getName() << "." << endl;
+		// cout << "Message " << m->id << ": Sent at " << m->timestamp << ", current timestamp " << getTime() << ". My name is " << getName() << "." << endl;
 		
 		//Send some test messages
 		if(m->timestamp < 50) {
@@ -578,7 +579,7 @@ void AluModule::operate() {
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
 			sign = op2 & INT16_SGN;
-			
+
 			while (op1) {
 				c_outLSB = op2 & 1;
 				op2 >>= 1;
@@ -599,4 +600,9 @@ void AluModule::operate() {
 				setFlag(CF);
 			break;
 	}	
+	cout << "Result DEC\t" << int16(global_regs.general_regs[dst]) << endl;
+	cout << "Result U DEC\t" << uint16_t(global_regs.general_regs[dst]) << endl;
+	cout << "Result BIN\t" << bitset<16>(global_regs.general_regs[dst]) << endl;
+	cout << "Flags\t" << bitset<16>(global_regs.flag) << endl;
+	cout << "++++++++++++++++++++++++++++++++++++++++++++++++" << endl;
 }

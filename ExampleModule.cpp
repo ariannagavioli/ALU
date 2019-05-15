@@ -27,7 +27,7 @@ void ExampleModule::onNotify(message* m) {
 	if(m->dest == getName()){
 		string Fetch = "Fetch";
 		
-		cout << "Message " << m->id << ": Sent at " << m->timestamp << ", current timestamp " << getTime() << ". My name is " << getName() << "." << endl;
+		// cout << "Message " << m->id << ": Sent at " << m->timestamp << ", current timestamp " << getTime() << ". My name is " << getName() << "." << endl;
 		
 		//Send some test messages
 		if(m->timestamp < 50) {
