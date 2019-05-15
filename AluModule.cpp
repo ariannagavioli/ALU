@@ -72,8 +72,8 @@ void AluModule::setFlag(unsigned flag) {
 void AluModule::operate() {
 
 	sign = 0;
-	c_out17 = 0;
-	c_out0 = 0;
+	c_outMSB = 0;
+	c_outLSB = 0;
 	global_regs.flag &= !(1 << CF); // carry flag
 	global_regs.flag &= !(1 << ZF);	// zero flag
 	global_regs.flag &= !(1 << SF);	// sign flag
@@ -269,7 +269,7 @@ void AluModule::operate() {
 			op2 = global_regs.general_regs[dst];
 			utmp = op2 << op1;
 			sign = utmp & INT16_SGN;
-			c_out17 = utmp & BIT_17TH;
+			c_outMSB = utmp & BIT_17TH;
 			global_regs.general_regs[dst] = utmp;
 
 			if (sign != 0)
@@ -278,7 +278,7 @@ void AluModule::operate() {
 			if (int16_t(utmp) == 0)
 				setFlag(ZF);
 
-			if (c_out17 == BIT_17TH)
+			if (c_outMSB == BIT_17TH)
 				setFlag(CF);
 			break;
 
@@ -287,7 +287,7 @@ void AluModule::operate() {
 			op2 = global_regs.general_regs[dst];
 			utmp = op2 << op1;
 			sign = utmp & INT16_SGN;
-			c_out17 = utmp & BIT_17TH;
+			c_outMSB = utmp & BIT_17TH;
 			global_regs.general_regs[dst] = uint16_t(utmp);
 
 			if (sign != 0)
@@ -296,7 +296,7 @@ void AluModule::operate() {
 			if (int16_t(utmp) == 0)
 				setFlag(ZF);
 
-			if (c_out17 == BIT_17TH)
+			if (c_outMSB == BIT_17TH)
 				setFlag(CF);
 			break;
 
@@ -306,7 +306,7 @@ void AluModule::operate() {
 			sign = op2 & INT16_SGN;
 			
 			while (op1) {
-				c_out0 = op2 & 1;
+				c_outLSB = op2 & 1;
 				op2 >>= 1;
 				op1--;
 			}
@@ -320,7 +320,7 @@ void AluModule::operate() {
 			if (op2 == 0)
 				setFlag(ZF);
 
-			if (c_out0)
+			if (c_outLSB)
 				setFlag(CF);
 
 			break;
@@ -330,7 +330,7 @@ void AluModule::operate() {
 			op2 = global_regs.general_regs[dst];
 
 			while(op1) {
-				c_out0 = op2 & 1;
+				c_outLSB = op2 & 1;
 				op2 >> 1;
 				op2 |= sign;
 				op1--;
@@ -344,7 +344,7 @@ void AluModule::operate() {
 			if(op2 == 0)
 				setFlag(ZF);
 			
-			if(c_out0)
+			if(c_outLSB)
 				setFlag(CF);
 			break;
 
@@ -386,15 +386,21 @@ void AluModule::operate() {
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
 			tmp = op2 - op1;
+			
+			
+			if (int16_t(tmp) < 0)
+				setFlag(SF);
 
 			if (uint16_t(tmp) == 0)
 				setFlag(ZF);
 
-			if (int16_t(tmp) < 0)
-				setFlag(SF);
-			
-			if (uint16_t(tmp) > UINT16_MAX)
+			sign = (op1 & INT16_SGN) ^ (op2 & INT16_SGN);
+
+			if (sign ^ (uint16_t(tmp) & INT16_SGN))
 				setFlag(OF);
+
+			if(uint16_t(tmp) > op1)
+				setFlag(CF);
 
 			break;
 
@@ -404,11 +410,11 @@ void AluModule::operate() {
 			utmp = op1 * op2;
 			global_regs.general_regs[dst] = utmp;
 
-			if(int16_t(utmp) == 0)
-				setFlag(ZF);
+			if (utmp > UINT16_MAX){
+				setFlag(OF);		
+				setFlag(CF);
+			}
 
-			if (uint16_t(utmp) > UINT16_MAX)
-				setFlag(OF);				
 			break;
 
 		case IMUL_REG_OPC :			// IMUL REG
@@ -421,16 +427,13 @@ void AluModule::operate() {
 
 			utmp = op1 * op2;
 
-			if (uint16_t(utmp) > INT16_BITS)
+			if (utmp > UINT16_MAX) {
 				setFlag(OF);
-
-			if (sign) {
-				setFlag(SF);
-				utmp = -utmp;
+				setFlag(CF);
 			}
 
-			if(int16_t(utmp) == 0)
-				setFlag(ZF);
+			if (sign)
+				utmp = -utmp;
 
 			global_regs.general_regs[dst] = int16_t(utmp);
 
@@ -441,9 +444,6 @@ void AluModule::operate() {
 			op2 = global_regs.general_regs[dst];
 			utmp = op2 / op1;
 			global_regs.general_regs[dst] = utmp;
-
-			if (uint16_t(utmp) == 0)
-				setFlag(ZF);
 			break;
 
 		case IDIV_REG_OPC :			// IDIV_REG	
@@ -456,19 +456,10 @@ void AluModule::operate() {
 
 			utmp = op2 / op1;
 
-			if (uint16_t(utmp) > UINT16_MAX)
-				setFlag(OF);
-
-			if (sign) {
-				setFlag(SF);
+			if (sign)
 				utmp = -utmp;
-			}
-
-			if(int16_t(utmp) == 0)
-				setFlag(ZF);
 
 			global_regs.general_regs[dst] = int16_t(utmp);
-
 			break;
 		
 		case AND_REG_OPC : 			// AND REG
@@ -489,14 +480,14 @@ void AluModule::operate() {
 		case OR_REG_OPC : 			// OR REG
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
-			utmp = op1 | op2;
-			global_regs.general_regs[dst] = utmp;
-			sign = utmp & INT16_SGN;
+			tmp16 = op1 | op2;
+			global_regs.general_regs[dst] = tmp16;
+			sign = tmp16 & INT16_SGN;
 
 			if (sign)
 				setFlag(SF);
 
-			if(utmp == 0)
+			if(tmp16 == 0)
 				setFlag(ZF);
 
 			break;
@@ -506,7 +497,7 @@ void AluModule::operate() {
 			op2 = global_regs.general_regs[dst];
 			utmp = op2 << op1;
 			sign = utmp & INT16_SGN;
-			c_out17 = utmp & BIT_17TH;
+			c_outMSB = utmp & BIT_17TH;
 			global_regs.general_regs[dst] = utmp;
 
 			if (sign)
@@ -515,7 +506,7 @@ void AluModule::operate() {
 			if (int16_t(utmp) == 0)
 				setFlag(ZF);
 
-			if(c_out17 == BIT_17TH)
+			if(c_outMSB)
 				setFlag(CF);
 
 			break;
@@ -525,7 +516,7 @@ void AluModule::operate() {
 			op2 = global_regs.general_regs[dst];
 			utmp = op2 << op1;
 			sign = utmp & INT16_SGN;
-			c_out17 = utmp & BIT_17TH;
+			c_outMSB = utmp & BIT_17TH;
 			global_regs.general_regs[dst] = utmp;
 
 			if (sign)
@@ -534,7 +525,7 @@ void AluModule::operate() {
 			if (int16_t(utmp) == 0)
 				setFlag(ZF);
 
-			if(c_out17 == BIT_17TH)
+			if(c_outMSB)
 				setFlag(CF);
 			break;
 		
@@ -543,7 +534,7 @@ void AluModule::operate() {
 			op2 = global_regs.general_regs[dst];
 			
 			while(op1) {
-				c_out0 = op2 & 1;
+				c_outLSB = op2 & 1;
 				op2 >>= 1;
 				op1--;
 			}
@@ -556,7 +547,7 @@ void AluModule::operate() {
 			if(op2 == 0)
 				setFlag(ZF);
 
-			if(c_out0)
+			if(c_outLSB)
 				setFlag(CF);
 
 			break;
@@ -567,7 +558,7 @@ void AluModule::operate() {
 			sign = op2 & INT16_SGN;
 			
 			while (op1) {
-				c_out0 = op2 & 1;
+				c_outLSB = op2 & 1;
 				op2 >>= 1;
 				op2 |= sign;
 				op1--;
@@ -582,9 +573,8 @@ void AluModule::operate() {
 			if(op2 == 0)
 				setFlag(ZF);
 
-			if (c_out0)
+			if (c_outLSB)
 				setFlag(CF);
-			// cout << "@ " << int(alu_regs.opcode) << " DST " << int16_t(global_regs.general_regs[dst]) << endl; 	
 			break;
 	}	
 }

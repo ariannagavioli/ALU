@@ -76,9 +76,9 @@ private:
 	uint16_t	sign;
 	uint16_t	tmp16;
 	int16_t 	tmp16s;
-	uint16_t	c_out0;
+	uint16_t	c_outLSB;
 	unsigned	utmp;
-	unsigned	c_out17;
+	unsigned	c_outMSB;
 	int	 		tmp;
 };
 
