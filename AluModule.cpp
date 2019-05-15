@@ -107,9 +107,14 @@ void AluModule::operate() {
 
 		case NEG_OPC :			// NEG: two complement
 			/*Flags not specified on the book, not even operation, review operation */
+			
 			src = alu_regs.operand1;			
-
 			tmp16 = global_regs.general_regs[src];
+
+			if(tmp16 == INT16_SGN) {
+				setFlag(OF);
+				break;
+			}
 
 			if(tmp16 == 0)
 				setFlag(CF);
@@ -122,6 +127,7 @@ void AluModule::operate() {
 				setFlag(ZF);
 			if(tmp16s < 0)
 				setFlag(SF);
+
 			break;
 
 		case NOT_OPC :			// NOT: negate bitwise
