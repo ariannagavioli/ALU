@@ -170,8 +170,8 @@ void AluModule::operate() {
 			if(int16_t(tmp < 0))
 				setFlag(SF);
 
-			if(op1 && INT16_SGN != op2 && INT16_SGN)		// operands have different sign
-				if(tmp && INT16_SGN != op1 && INT16_SGN)	// result has different sign than op1
+			if((op1 & INT16_SGN) != (op2 & INT16_SGN))		// operands have different sign
+				if((tmp & INT16_SGN) != (op1 & INT16_SGN))	// result has different sign than op1
 					setFlag(OF);
 
 			if(unsigned(tmp) > op1)
@@ -189,8 +189,8 @@ void AluModule::operate() {
 			if(int16_t(tmp < 0))
 				setFlag(SF);
 
-			if(op1 && INT16_SGN |= op2 && INT16_SGN)		// operands have different sign
-				if(tmp && INT16_SGN != op1 && INT16_SGN)	// result has different sign than op1
+			if((op1 & INT16_SGN) != (op2 & INT16_SGN))		// operands have different sign
+				if((tmp & INT16_SGN) != (op1 & INT16_SGN))	// result has different sign than op1
 					setFlag(OF);
 
 			if(uint16_t(tmp) > op1)
