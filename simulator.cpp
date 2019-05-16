@@ -15,10 +15,10 @@ int main() {
 	// system.addModule(new ExampleModule("Bob", 10));//The second parameter is the priority. It's useful only when you need to intercept someone's else message
 	uint8_t dst = 4;
 	
-	global_regs.general_regs[dst] = -3072;
-	cout << "Initial binary" << bitset<16>(global_regs.general_regs[dst]) << endl;
+	global_regs.general_regs[dst] = -4000;
+	cout << "Initial binary " << bitset<16>(global_regs.general_regs[dst]) << endl;
 
-	alu_regs.opcode = IDIV_OPC;
+	alu_regs.opcode = IMUL_OPC;
 	alu_regs.operand1 = 2;
 
 	global_regs.general_regs[alu_regs.operand1] = 5;

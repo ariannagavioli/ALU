@@ -60,6 +60,27 @@ typedef short int16;
 #define SAR_REG_OPC 	0b10001101
 /*********************/
 
+/* DELAY DEFINITIONS OF OPERATIONS */
+#define	INC_DELAY	10
+#define	DEC_DELAY	10
+#define	NEG_DELAY	20
+#define	NOT_DELAY	10
+#define	ADD_DELAY	20
+#define	SUB_DELAY	20
+#define	CMP_DELAY	20
+#define	MUL_DELAY	50
+#define	IMUL_DELAY	50
+#define	DIV_DELAY	50
+#define	IDIV_DELAY	50
+#define	AND_DELAY	20
+#define	OR_DELAY	20
+#define	SHL_DELAY	15
+#define	SAL_DELAY	15
+#define	SHR_DELAY	15
+#define	SAR_DELAY	15
+/*********************/
+
+
 
 class AluModule : public module
 {
@@ -80,6 +101,7 @@ private:
 	unsigned	utmp;
 	unsigned	c_outMSB;
 	int	 		tmp;
+	int 		delay;
 };
 
 // struct decode_registers alu_regs;

@@ -49,7 +49,7 @@ void AluModule::onNotify(message* m) {
 
 				myMessage->magic_struct = NULL;
 				
-				sendWithDelay(myMessage, 10);
+				sendWithDelay(myMessage, delay);
 			}
 			else{
 				message* myMessage = new message();
@@ -93,7 +93,7 @@ void AluModule::operate() {
 			if(tmp16s < 0)
 				setFlag(SF);
 
-			usleep(10);
+			delay = INC_DELAY;
 			break;
 
 		case DEC_OPC : 			// DEC
@@ -106,7 +106,7 @@ void AluModule::operate() {
 				setFlag(ZF);
 			if(tmp16s < 0)
 				setFlag(SF);
-			usleep(10);
+			delay = DEC_DELAY;
 			break;
 
 		case NEG_OPC :			// NEG: two complement
@@ -132,7 +132,7 @@ void AluModule::operate() {
 			if(tmp16s < 0)
 				setFlag(SF);
 
-			usleep(20);
+			delay = NEG_DELAY;
 			break;
 
 		case NOT_OPC :			// NOT: negate bitwise
@@ -141,7 +141,7 @@ void AluModule::operate() {
 			tmp16 = global_regs.general_regs[src];
 			tmp16 = ~tmp16;
 			global_regs.general_regs[src] = tmp16;
-			usleep(10);
+			delay = NOT_DELAY;
 			break;
 
 		case ADD_OPC :			//ADD
@@ -162,7 +162,7 @@ void AluModule::operate() {
 
 			if(unsigned(tmp) < op1 || unsigned(tmp) < op2)
 				setFlag(CF);
-			usleep(20);
+			delay = ADD_DELAY;
 			break;
 
 		case SUB_OPC :			//SUB
@@ -183,7 +183,7 @@ void AluModule::operate() {
 
 			if(unsigned(tmp) > op1)
 				setFlag(CF);
-			usleep(20);
+			delay = SUB_DELAY;
 			break;
 
 		case CMP_OPC :			//CMP
@@ -203,7 +203,7 @@ void AluModule::operate() {
 
 			if(uint16_t(tmp) > op1)
 				setFlag(CF);
-			usleep(20);
+			delay = CMP_DELAY;
 			break;
 
 		case MUL_OPC :			// MUL
@@ -216,7 +216,7 @@ void AluModule::operate() {
 				setFlag(OF);
 				setFlag(CF);
 			}
-			usleep(50);
+			delay = MUL_DELAY;
 			break;
 
 		case IMUL_OPC :			//IMUL
@@ -236,12 +236,8 @@ void AluModule::operate() {
 			if(sign)
 				utmp = -utmp;
 
-			if (utmp > UINT16_MAX){
-				global_regs.general_regs[dst] = utmp & UINT16_MAX;
-				// global_regs.general_regs[dst + 1] = utmp >> 16; 
-			} else
-				global_regs.general_regs[dst] = int16_t(utmp);
-			usleep(50);
+			global_regs.general_regs[dst] = int16_t(utmp);
+			delay = IMUL_DELAY;
 			break;
 
 		case DIV_OPC :			//DIV
@@ -249,7 +245,7 @@ void AluModule::operate() {
 			op2 = global_regs.general_regs[dst];
 			utmp = op2 / op1;
 			global_regs.general_regs[dst] = utmp;
-			usleep(50);
+			delay = DIV_DELAY;
 			break;
 
 		case IDIV_OPC :			//IDIV
@@ -267,7 +263,7 @@ void AluModule::operate() {
 
 			global_regs.general_regs[dst] = int16_t(utmp);
 
-			usleep(50);
+			delay = IDIV_DELAY;
 			break;
 
 		case AND_OPC :			//AND
@@ -282,7 +278,7 @@ void AluModule::operate() {
 
 			if(tmp16 == 0)
 				setFlag(ZF);
-			usleep(20);
+			delay = AND_DELAY;
 			break;
 
 
@@ -298,7 +294,7 @@ void AluModule::operate() {
 
 			if (tmp16 == 0) 
 				setFlag(ZF);
-			usleep(20);
+			delay = OR_DELAY;
 			break;
 
 		case SHL_OPC :			//SHL
@@ -317,7 +313,7 @@ void AluModule::operate() {
 
 			if (c_outMSB == BIT_17TH)
 				setFlag(CF);
-			usleep(15);
+			delay = SHL_DELAY * op1;;
 			break;
 
 		case SAL_OPC :			//SAL
@@ -336,13 +332,14 @@ void AluModule::operate() {
 
 			if (c_outMSB)
 				setFlag(CF);
-			usleep(15);
+			delay = SAL_DELAY * op1;
 			break;
 
 		case SHR_OPC :			//SHR
 			op1 = alu_regs.operand1;
 			op2 = global_regs.general_regs[dst];
 			sign = op2 & INT16_SGN;
+			delay = SHR_DELAY * op1;
 			
 			while (op1) {
 				c_outLSB = op2 & 1;
@@ -362,12 +359,12 @@ void AluModule::operate() {
 			if (c_outLSB)
 				setFlag(CF);
 
-			usleep(15);
 			break;
 		
 		case SAR_OPC :			//SAR
 			op1 = alu_regs.operand1;
 			op2 = global_regs.general_regs[dst];
+			delay = SHR_DELAY * op1;
 
 			while(op1) {
 				c_outLSB = op2 & 1;
@@ -387,7 +384,7 @@ void AluModule::operate() {
 			if(c_outLSB)
 				setFlag(CF);
 
-			usleep(15);
+			delay = SAR_DELAY;
 			break;
 
 		/*Register - Register*/
@@ -410,7 +407,7 @@ void AluModule::operate() {
 			if((unsigned(tmp) < op1) || (unsigned(tmp) < op2))
 				setFlag(CF);				
 
-			usleep(20);
+			delay = ADD_DELAY;
 			break;
 
 		case SUB_REG_OPC :			// SUB REG
@@ -429,7 +426,7 @@ void AluModule::operate() {
 				if((tmp & INT16_SGN) != (op1 & INT16_SGN))
 					setFlag(OF);
 
-			usleep(20);
+			delay = SUB_DELAY;
 			break;
 
 		case CMP_REG_OPC : 			// CMP REG
@@ -450,7 +447,7 @@ void AluModule::operate() {
 			if(uint16_t(tmp) > op1)
 				setFlag(CF);
 
-			usleep(20);
+			delay = CMP_DELAY;
 			break;
 
 		case MUL_REG_OPC : 			// MUL REG
@@ -464,7 +461,7 @@ void AluModule::operate() {
 				setFlag(CF);
 			}
 
-			usleep(50);
+			delay = MUL_DELAY;
 			break;
 
 		case IMUL_REG_OPC :			// IMUL REG
@@ -486,7 +483,7 @@ void AluModule::operate() {
 				utmp = -utmp;
 
 			global_regs.general_regs[dst] = int16_t(utmp);
-			usleep(50);
+			delay = IMUL_DELAY;
 			break;
 
 		case DIV_REG_OPC : 			// DIV REG
@@ -494,7 +491,7 @@ void AluModule::operate() {
 			op2 = global_regs.general_regs[dst];
 			utmp = op2 / op1;
 			global_regs.general_regs[dst] = utmp;
-			usleep(50);
+			delay = DIV_DELAY;
 			break;
 
 		case IDIV_REG_OPC :			// IDIV_REG	
@@ -511,7 +508,7 @@ void AluModule::operate() {
 				utmp = -utmp;
 
 			global_regs.general_regs[dst] = int16_t(utmp);
-			usleep(50);
+			delay = IDIV_DELAY;
 			break;
 		
 		case AND_REG_OPC : 			// AND REG
@@ -526,7 +523,7 @@ void AluModule::operate() {
 
 			if(tmp16 == 0)
 				setFlag(ZF);
-			usleep(20);
+			delay = AND_DELAY;
 			break;
 		
 		case OR_REG_OPC : 			// OR REG
@@ -541,7 +538,7 @@ void AluModule::operate() {
 
 			if(tmp16 == 0)
 				setFlag(ZF);
-			usleep(20);
+			delay = OR_DELAY;
 			break;
 		
 		case SHL_REG_OPC : 			// SHL REG
@@ -560,7 +557,7 @@ void AluModule::operate() {
 
 			if(c_outMSB)
 				setFlag(CF);
-			usleep(15);
+			delay = SHL_DELAY * op1;
 			break;
 		
 		case SAL_REG_OPC : 			// SAL REG
@@ -579,13 +576,13 @@ void AluModule::operate() {
 
 			if(c_outMSB)
 				setFlag(CF);
-			usleep(15);
+			delay = SAL_DELAY * op1;
 			break;
 		
 		case SHR_REG_OPC : 			// SHR REG
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
-			
+			delay = SHR_DELAY * op1;
 			while(op1) {
 				c_outLSB = op2 & 1;
 				op2 >>= 1;
@@ -602,14 +599,15 @@ void AluModule::operate() {
 
 			if(c_outLSB)
 				setFlag(CF);
-			usleep(15);
+			delay = SHR_DELAY;
 			break;
 		
 		case SAR_REG_OPC : 			// SAR REG
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
 			sign = op2 & INT16_SGN;
-
+			delay = SHR_DELAY * op1;
+			
 			while (op1) {
 				c_outLSB = op2 & 1;
 				op2 >>= 1;
@@ -628,7 +626,7 @@ void AluModule::operate() {
 
 			if (c_outLSB)
 				setFlag(CF);
-			usleep(15);
+			delay = SAR_DELAY;
 			break;
 	}	
 	cout << "Result DEC\t" << int16(global_regs.general_regs[dst]) << endl;
