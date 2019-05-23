@@ -83,10 +83,10 @@ void AluModule::operate() {
 
 	switch(alu_regs.opcode){
 		case INC_OPC :			// INC
-			/*According to the book, the flags after this operation aren't modify */
+			
 			src = alu_regs.operand1;
-			global_regs.general_regs[src]++;
-			tmp16s = global_regs.general_regs[src];
+			global_regs.general_regs[src]++;				//Incrementing the value of the source reg
+			tmp16s = global_regs.general_regs[src];			//Taking the result value as a signed to set the flags
 
 			if(tmp16s == 0)
 				setFlag(ZF);
@@ -97,35 +97,35 @@ void AluModule::operate() {
 			break;
 
 		case DEC_OPC : 			// DEC
-			/*According to the book, the flags after this operation aren't modify */
+			
 			src = alu_regs.operand1;
-			global_regs.general_regs[src]--;
-			tmp16s = global_regs.general_regs[src];
+			global_regs.general_regs[src]--;				//Decrementing the value of the source reg
+			tmp16s = global_regs.general_regs[src];			//Taking the result value as a signed to set the flags
 
 			if(tmp16s == 0)
 				setFlag(ZF);
 			if(tmp16s < 0)
 				setFlag(SF);
+
 			delay = DEC_DELAY;
 			break;
 
 		case NEG_OPC :			// NEG: two complement
-			/*Flags not specified on the book, not even operation, review operation */
 			
 			src = alu_regs.operand1;			
 			tmp16 = global_regs.general_regs[src];
 
-			if(tmp16 == INT16_SGN) {
-				setFlag(OF);
+			if(tmp16 == INT16_SGN) {						//If it is all 1 bits, the operation is not possible
+				setFlag(OF);								//in that case, overflow flag is set
 				break;
 			}
 
-			if(tmp16 == 0)
+			if(tmp16 == 0)									//If 0, the carry flag must be set
 				setFlag(CF);
 
-			tmp16 = -tmp16;						
-			global_regs.general_regs[src] = tmp16;
-			tmp16s = tmp16;
+			tmp16 = -tmp16;									//Doing the 2's complement				
+			global_regs.general_regs[src] = tmp16;	
+			tmp16s = tmp16;									//Taking the result as a signed value to set the flags
 
 			if(tmp16 == 0)
 				setFlag(ZF);
@@ -139,8 +139,9 @@ void AluModule::operate() {
 			src = alu_regs.operand1;
 
 			tmp16 = global_regs.general_regs[src];
-			tmp16 = ~tmp16;
+			tmp16 = ~tmp16;									//Negating bitwise
 			global_regs.general_regs[src] = tmp16;
+
 			delay = NOT_DELAY;
 			break;
 
@@ -156,12 +157,13 @@ void AluModule::operate() {
 			if(int16_t(tmp < 0))
 				setFlag(SF);
 
-			if((op1 & INT16_SGN) == (op2 & INT16_SGN))		// operands have the same sing
-				if(op1 & INT16_SGN != tmp & INT16_SGN)	// result has different sign
+			if((op1 & INT16_SGN) == (op2 & INT16_SGN))		//If operands have the same sign
+				if(op1 & INT16_SGN != tmp & INT16_SGN)		//and result has different sign than op1 it means it overflowed
 					setFlag(OF);
 
-			if(unsigned(tmp) < op1 || unsigned(tmp) < op2)
-				setFlag(CF);
+			if(unsigned(tmp) < op1 || unsigned(tmp) < op2)	//If the result value is less than any operand
+				setFlag(CF);								//the carry flag must be set
+
 			delay = ADD_DELAY;
 			break;
 
@@ -177,12 +179,13 @@ void AluModule::operate() {
 			if(int16_t(tmp < 0))
 				setFlag(SF);
 
-			if((op1 & INT16_SGN) != (op2 & INT16_SGN))		// operands have different sign
-				if((tmp & INT16_SGN) != (op1 & INT16_SGN))	// result has different sign than op1
+			if((op1 & INT16_SGN) != (op2 & INT16_SGN))		//If operands have different sign
+				if((tmp & INT16_SGN) != (op1 & INT16_SGN))	//and result has different sign than op1 it means it overflowed
 					setFlag(OF);
 
-			if(unsigned(tmp) > op1)
-				setFlag(CF);
+			if(unsigned(tmp) > op1)							//If the result value is bigger than operand1
+				setFlag(CF);								//carry flag must be set
+
 			delay = SUB_DELAY;
 			break;
 
@@ -197,69 +200,73 @@ void AluModule::operate() {
 			if(int16_t(tmp < 0))
 				setFlag(SF);
 
-			if((op1 & INT16_SGN) != (op2 & INT16_SGN))		// operands have different sign
-				if((tmp & INT16_SGN) != (op1 & INT16_SGN))	// result has different sign than op1
+			if((op1 & INT16_SGN) != (op2 & INT16_SGN))		//If operands have different sign
+				if((tmp & INT16_SGN) != (op1 & INT16_SGN))	//and result has different sign than op1 it means it overflowed
 					setFlag(OF);
 
-			if(uint16_t(tmp) > op1)
-				setFlag(CF);
+			if(uint16_t(tmp) > op1)							//If the result value is bigger than operand1
+				setFlag(CF);								//carry flag must be set
+
 			delay = CMP_DELAY;
 			break;
 
-		case MUL_OPC :			// MUL
+		case MUL_OPC :			// MUL -- unsigned multiplication
 			op1 = alu_regs.operand1;
 			op2 = global_regs.general_regs[dst];
-			utmp = op1 * op2;
+			utmp = op1 * op2;								//Result of multiplication is stored in 32 bit variable to check overflow
 			global_regs.general_regs[dst] = utmp;
 			
-			if(utmp > UINT16_MAX){
+			if(utmp > UINT16_MAX){							//If result value is bigger than the maximum 16bit value (in abs)
 				setFlag(OF);
 				setFlag(CF);
 			}
+
 			delay = MUL_DELAY;
 			break;
 
-		case IMUL_OPC :			//IMUL
-			op1 = alu_regs.operand1;						// Cast to unsigned 15 bits 
+		case IMUL_OPC :			//IMUL -- signed multiplication
+			op1 = alu_regs.operand1;
 			op2 = global_regs.general_regs[dst];
-			sign = (op1 & INT16_SGN) ^ (op2 & INT16_SGN);	// Final sign is result of xor of the operands signs
-			op1 = abs(int16_t(op1));						// in absolute value, the product of two numbers are
-			op2 = abs(int16_t(op2));						// the same
+			sign = (op1 & INT16_SGN) ^ (op2 & INT16_SGN);	//Final sign is result of xor of the operands' signs
+			op1 = abs(int16_t(op1));						//Taking the operands in absolute value, the result
+			op2 = abs(int16_t(op2));						//will be the same, we will update the sign later
 			
-			utmp = op1 * op2;
+			utmp = op1 * op2;								//Result is stored in a 32 bit variable to check overflow
 			
-			if(utmp > INT16_BITS){
+			if(utmp > INT16_BITS){							//If result value is bigger than the maximum 15bit value (16th bit is for sign)
 				setFlag(OF);
 				setFlag(CF);
 			}
 
-			if(sign)
-				utmp = -utmp;
+			if(sign)										//If sign of operands are not the same
+				utmp = -utmp;								//update the sign
 
 			global_regs.general_regs[dst] = int16_t(utmp);
+
 			delay = IMUL_DELAY;
 			break;
 
-		case DIV_OPC :			//DIV
+		case DIV_OPC :			//DIV -- unsigned division
 			op1 = alu_regs.operand1;
 			op2 = global_regs.general_regs[dst];
 			utmp = op2 / op1;
 			global_regs.general_regs[dst] = utmp;
+
 			delay = DIV_DELAY;
 			break;
 
-		case IDIV_OPC :			//IDIV
-			op1 = alu_regs.operand1;						// I am putting to zero the first bit
+		case IDIV_OPC :			//IDIV -- signed division
+			op1 = alu_regs.operand1;
 			op2 = global_regs.general_regs[dst];
-			sign = (op1 & INT16_SGN) ^ (op2 & INT16_SGN);	// Final sign is result of xor of the operands signs
+			sign = (op1 & INT16_SGN) ^ (op2 & INT16_SGN);	//Final sign is result of xor of the operands' signs
 
-			op1 = abs(int16_t(op1));
-			op2 = abs(int16_t(op2));
+			op1 = abs(int16_t(op1));						//Taking the operands in absolute value, the result
+			op2 = abs(int16_t(op2));						//will be the same, we will update the sign later
 
 			utmp = op2 / op1;
 
-			if(sign)
-				utmp = -utmp;
+			if(sign)										//If sign of operands are not the same
+				utmp = -utmp;								//update the sign
 
 			global_regs.general_regs[dst] = int16_t(utmp);
 
@@ -269,15 +276,16 @@ void AluModule::operate() {
 		case AND_OPC :			//AND
 			op1 = alu_regs.operand1;
 			op2 = global_regs.general_regs[dst];
-			tmp16 = op1 & op2;
+			tmp16 = op1 & op2;								//And bitwise
 			global_regs.general_regs[dst] = tmp16;
-			sign = tmp16 & INT16_SGN;
+			sign = tmp16 & INT16_SGN;						//Taking the first bit of the result
 			
 			if(sign)
 				setFlag(SF);
 
 			if(tmp16 == 0)
 				setFlag(ZF);
+
 			delay = AND_DELAY;
 			break;
 
@@ -285,15 +293,16 @@ void AluModule::operate() {
 		case OR_OPC :			//OR
 			op1 = alu_regs.operand1;
 			op2 = global_regs.general_regs[dst];
-			tmp16 = op1 | op2;
+			tmp16 = op1 | op2;								//Or bitwise
 			global_regs.general_regs[dst] = tmp16;
-			sign = tmp16 & INT16_SGN;
+			sign = tmp16 & INT16_SGN;						//Taking the first bit of the result
 
 			if(sign)
 				setFlag(SF);
 
 			if (tmp16 == 0) 
 				setFlag(ZF);
+			
 			delay = OR_DELAY;
 			break;
 
