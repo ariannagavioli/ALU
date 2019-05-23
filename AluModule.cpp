@@ -309,10 +309,10 @@ void AluModule::operate() {
 		case SHL_OPC :			//SHL
 			op1 = alu_regs.operand1;
 			op2 = global_regs.general_regs[dst];
-			utmp = op2 << op1;
-			sign = utmp & INT16_SGN;
-			c_outMSB = utmp & BIT_17TH;
-			global_regs.general_regs[dst] = utmp;
+			utmp = op2 << op1; 								// Shifting left op1 postitions
+			sign = utmp & INT16_SGN; 						// Isolating the sign bit (MSB of 16-bit)
+			c_outMSB = utmp & BIT_17TH; 					// Isolation the 17th bit
+			global_regs.general_regs[dst] = utmp; 		
 
 			if (sign)
 				setFlag(SF);
@@ -320,18 +320,19 @@ void AluModule::operate() {
 			if (int16_t(utmp) == 0)
 				setFlag(ZF);
 
-			if (c_outMSB == BIT_17TH)
-				setFlag(CF);
-			delay = SHL_DELAY * op1;;
+			if (c_outMSB == BIT_17TH) 						// the 17th bit is the carry out
+				setFlag(CF); 								
+
+			delay = SHL_DELAY * op1; 						// Elapsed time is proportional to the number of positions shifted 
 			break;
 
 		case SAL_OPC :			//SAL
 			op1 = alu_regs.operand1;
 			op2 = global_regs.general_regs[dst];
-			utmp = op2 << op1;
-			sign = utmp & INT16_SGN;
-			c_outMSB = utmp & BIT_17TH;
-			global_regs.general_regs[dst] = uint16_t(utmp);
+			utmp = op2 << op1; 								// Shifting left po1 positions
+			sign = utmp & INT16_SGN; 						// Isolating the sign bit (MSB of 16-bit)
+			c_outMSB = utmp & BIT_17TH; 					// Isolating the 17th bit
+			global_regs.general_regs[dst] = uint16_t(utmp); 
 
 			if (sign)
 				setFlag(SF);
@@ -339,21 +340,20 @@ void AluModule::operate() {
 			if (int16_t(utmp) == 0)
 				setFlag(ZF);
 
-			if (c_outMSB)
+			if (c_outMSB) 									// the 17th bit is the carry out
 				setFlag(CF);
-			delay = SAL_DELAY * op1;
+			delay = SAL_DELAY * op1; 						// Elapsed time is proportional to the number of positions shifted 
 			break;
 
 		case SHR_OPC :			//SHR
 			op1 = alu_regs.operand1;
 			op2 = global_regs.general_regs[dst];
-			sign = op2 & INT16_SGN;
-			delay = SHR_DELAY * op1;
+			delay = SHR_DELAY * op1; 						// Elapsed time is proportional to the number of postions shifted
 			
-			while (op1) {
-				c_outLSB = op2 & 1;
-				op2 >>= 1;
-				op1--;
+			while (op1) { 									// Shifting one bit at the time
+				c_outLSB = op2 & 1;							// allows to track the value of 
+				op2 >>= 1; 									// LSB, in order to have a carry out
+				op1--; 		
 			}
 			
 			sign = op2 & INT16_SGN;
@@ -373,15 +373,16 @@ void AluModule::operate() {
 		case SAR_OPC :			//SAR
 			op1 = alu_regs.operand1;
 			op2 = global_regs.general_regs[dst];
-			delay = SHR_DELAY * op1;
+			sign = op2 & INT16_SGN; 						// Getting the sign of the current input
+			delay = SHR_DELAY * op1; 						// Elapsed time is proportional to the positions to be shifted
 
 			while(op1) {
-				c_outLSB = op2 & 1;
-				op2 >> 1;
-				op2 |= sign;
-				op1--;
+				c_outLSB = op2 & 1; 						// Shifting one bit at the time allows
+				op2 >> 1; 									// to track the LSB in order to have and
+				op2 |= sign; 								// Keeping the sign consistency 
+				op1--; 	
 			}
-			sign = op2 & INT16_SGN;
+			sign = op2 & INT16_SGN; 						// Isolatin the sing bit
 			global_regs.general_regs[dst] = op2;
 			
 			if(sign)
@@ -409,12 +410,12 @@ void AluModule::operate() {
 			if(int16_t(tmp) < 0)
 				setFlag(SF);
 
-			if((op1 & INT16_SGN) == (op2 & INT16_SGN))
-				if((op1 & INT16_SGN) != (tmp & INT16_SGN))
+			if((op1 & INT16_SGN) == (op2 & INT16_SGN))		//If operands have the same sign
+				if(op1 & INT16_SGN != tmp & INT16_SGN)		//and result has different sign than op1 it means it overflowed
 					setFlag(OF);
-			
-			if((unsigned(tmp) < op1) || (unsigned(tmp) < op2))
-				setFlag(CF);				
+
+			if(unsigned(tmp) < op1 || unsigned(tmp) < op2)	//If the result value is less than any operand
+				setFlag(CF);								//the carry flag must be set
 
 			delay = ADD_DELAY;
 			break;
@@ -431,9 +432,12 @@ void AluModule::operate() {
 			if(int16_t(tmp) < 0)
 				setFlag(SF);
 
-			if((op1 & INT16_SGN) != (op2 & INT16_SGN))
-				if((tmp & INT16_SGN) != (op1 & INT16_SGN))
+			if((op1 & INT16_SGN) != (op2 & INT16_SGN))		//If operands have different sign
+				if((tmp & INT16_SGN) != (op1 & INT16_SGN))	//and result has different sign than op1 it means it overflowed
 					setFlag(OF);
+
+			if(unsigned(tmp) > op1)							//If the result value is bigger than operand1
+				setFlag(CF);								//carry flag must be set
 
 			delay = SUB_DELAY;
 			break;
@@ -449,12 +453,12 @@ void AluModule::operate() {
 			if (int16_t(tmp) < 0)
 				setFlag(SF);
 
-			if ((op1 & INT16_SGN) != (op2 & INT16_SGN))
-				if((tmp & INT16_SGN) != (op1 & INT16_SGN))
+			if((op1 & INT16_SGN) != (op2 & INT16_SGN))		//If operands have different sign
+				if((tmp & INT16_SGN) != (op1 & INT16_SGN))	//and result has different sign than op1 it means it overflowed
 					setFlag(OF);
 
-			if(uint16_t(tmp) > op1)
-				setFlag(CF);
+			if(uint16_t(tmp) > op1)							//If the result value is bigger than operand1
+				setFlag(CF);								//carry flag must be set
 
 			delay = CMP_DELAY;
 			break;
@@ -462,10 +466,10 @@ void AluModule::operate() {
 		case MUL_REG_OPC : 			// MUL REG
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
-			utmp = op1 * op2;
+			utmp = op1 * op2;								//Result of multiplication is stored in 32 bit variable to check overflow
 			global_regs.general_regs[dst] = utmp;
 
-			if (utmp > UINT16_MAX){
+			if(utmp > UINT16_MAX){							//If result value is bigger than the maximum 16bit value (in abs)
 				setFlag(OF);		
 				setFlag(CF);
 			}
@@ -476,20 +480,19 @@ void AluModule::operate() {
 		case IMUL_REG_OPC :			// IMUL REG
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
-			sign = (op1 & INT16_SGN) ^ (op2 & INT16_SGN); 
-
-			op1 = abs(int16_t(op1));
-			op2 = abs(int16_t(op2));
-
-			utmp = op1 * op2;
-
-			if (utmp > UINT16_MAX) {
+			sign = (op1 & INT16_SGN) ^ (op2 & INT16_SGN);	//Final sign is result of xor of the operands' signs
+			op1 = abs(int16_t(op1));						//Taking the operands in absolute value, the result
+			op2 = abs(int16_t(op2));						//will be the same, we will update the sign later
+			
+			utmp = op1 * op2;								//Result is stored in a 32 bit variable to check overflow
+			
+			if(utmp > INT16_BITS){							//If result value is bigger than the maximum 15bit value (16th bit is for sign)
 				setFlag(OF);
 				setFlag(CF);
 			}
 
-			if (sign)
-				utmp = -utmp;
+			if(sign)										//If sign of operands are not the same
+				utmp = -utmp;								//update the sign
 
 			global_regs.general_regs[dst] = int16_t(utmp);
 			delay = IMUL_DELAY;
@@ -506,15 +509,15 @@ void AluModule::operate() {
 		case IDIV_REG_OPC :			// IDIV_REG	
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
-			sign = (op1 & INT16_SGN) ^ (op2 & INT16_SGN); 
+			sign = (op1 & INT16_SGN) ^ (op2 & INT16_SGN);	//Final sign is result of xor of the operands' signs
 
-			op1 = abs(int16_t(op1));
-			op2 = abs(int16_t(op2));
+			op1 = abs(int16_t(op1));						//Taking the operands in absolute value, the result
+			op2 = abs(int16_t(op2));						//will be the same, we will update the sign later
 
 			utmp = op2 / op1;
 
-			if (sign)
-				utmp = -utmp;
+			if(sign)										//If sign of operands are not the same
+				utmp = -utmp;								//update the sign
 
 			global_regs.general_regs[dst] = int16_t(utmp);
 			delay = IDIV_DELAY;
@@ -523,9 +526,9 @@ void AluModule::operate() {
 		case AND_REG_OPC : 			// AND REG
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst]; 
-			tmp16 = op1 & op2;
+			tmp16 = op1 & op2;								//And bitwise
 			global_regs.general_regs[dst] = tmp16;
-			sign = tmp16 & INT16_SGN;
+			sign = tmp16 & INT16_SGN;						//Taking the first bit of the result
 
 			if(sign)
 				setFlag(SF);
@@ -538,9 +541,9 @@ void AluModule::operate() {
 		case OR_REG_OPC : 			// OR REG
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
-			tmp16 = op1 | op2;
+			tmp16 = op1 | op2;								//Or bitwise
 			global_regs.general_regs[dst] = tmp16;
-			sign = tmp16 & INT16_SGN;
+			sign = tmp16 & INT16_SGN;						//Taking the first bit of the result
 
 			if (sign)
 				setFlag(SF);
@@ -553,9 +556,9 @@ void AluModule::operate() {
 		case SHL_REG_OPC : 			// SHL REG
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
-			utmp = op2 << op1;
-			sign = utmp & INT16_SGN;
-			c_outMSB = utmp & BIT_17TH;
+			utmp = op2 << op1; 								// Shifting left op1 postitions
+			sign = utmp & INT16_SGN; 						// Isolating the sign bit (MSB of 16-bit)
+			c_outMSB = utmp & BIT_17TH; 					// Isolation the 17th bit
 			global_regs.general_regs[dst] = utmp;
 
 			if (sign)
@@ -564,17 +567,18 @@ void AluModule::operate() {
 			if (int16_t(utmp) == 0)
 				setFlag(ZF);
 
-			if(c_outMSB)
-				setFlag(CF);
-			delay = SHL_DELAY * op1;
+			if (c_outMSB == BIT_17TH) 						// the 17th bit is the carry out
+				setFlag(CF); 								
+
+			delay = SHL_DELAY * op1; 						// Elapsed time is proportional to the number of positions shifted 
 			break;
 		
 		case SAL_REG_OPC : 			// SAL REG
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
-			utmp = op2 << op1;
-			sign = utmp & INT16_SGN;
-			c_outMSB = utmp & BIT_17TH;
+			utmp = op2 << op1; 								// Shifting left po1 positions
+			sign = utmp & INT16_SGN; 						// Isolating the sign bit (MSB of 16-bit)
+			c_outMSB = utmp & BIT_17TH; 					// Isolating the 17th bit
 			global_regs.general_regs[dst] = utmp;
 
 			if (sign)
@@ -583,19 +587,20 @@ void AluModule::operate() {
 			if (int16_t(utmp) == 0)
 				setFlag(ZF);
 
-			if(c_outMSB)
+			if (c_outMSB) 									// the 17th bit is the carry out
 				setFlag(CF);
-			delay = SAL_DELAY * op1;
+			delay = SAL_DELAY * op1; 						// Elapsed time is proportional to the number of positions shifted 
 			break;
 		
 		case SHR_REG_OPC : 			// SHR REG
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
-			delay = SHR_DELAY * op1;
-			while(op1) {
-				c_outLSB = op2 & 1;
-				op2 >>= 1;
-				op1--;
+			delay = SHR_DELAY * op1; 						// Elapsed time is proportional to the number of postions shifted
+
+			while (op1) { 									// Shifting one bit at the time
+				c_outLSB = op2 & 1;							// allows to track the value of 
+				op2 >>= 1; 									// LSB, in order to have a carry out
+				op1--; 		
 			}
 			sign = op2 & INT16_SGN;
 			global_regs.general_regs[dst] = op2;
@@ -614,17 +619,16 @@ void AluModule::operate() {
 		case SAR_REG_OPC : 			// SAR REG
 			op1 = global_regs.general_regs[alu_regs.operand1];
 			op2 = global_regs.general_regs[dst];
-			sign = op2 & INT16_SGN;
-			delay = SHR_DELAY * op1;
-			
-			while (op1) {
-				c_outLSB = op2 & 1;
-				op2 >>= 1;
-				op2 |= sign;
-				op1--;
-			}
+			sign = op2 & INT16_SGN; 						// Getting the sign of the current input
+			delay = SHR_DELAY * op1; 						// Elapsed time is proportional to the positions to be shifted
 
-			sign = op2 & INT16_SGN;
+			while(op1) {
+				c_outLSB = op2 & 1; 						// Shifting one bit at the time allows
+				op2 >> 1; 									// to track the LSB in order to have and
+				op2 |= sign; 								// Keeping the sign consistency 
+				op1--; 	
+			}
+			sign = op2 & INT16_SGN; 						// Isolatin the sing bit
 			global_regs.general_regs[dst] = op2;
 			
 			if(sign)
