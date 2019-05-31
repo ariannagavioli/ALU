@@ -123,10 +123,9 @@ void AluModule::operate() {
 			if(tmp16 == 0)									//If 0, the carry flag must be set
 				setFlag(CF);
 
-			tmp16 = -tmp16;									//Doing the 2's complement				
-			global_regs.general_regs[src] = tmp16;	
-			tmp16s = tmp16;									//Taking the result as a signed value to set the flags
-
+			tmp16s = -tmp16;								//Doing the 2's complement				
+			global_regs.general_regs[src] = tmp16s;	
+			
 			if(tmp16 == 0)
 				setFlag(ZF);
 			if(tmp16s < 0)
@@ -232,16 +231,17 @@ void AluModule::operate() {
 			op2 = abs(int16_t(op2));						//will be the same, we will update the sign later
 			
 			utmp = op1 * op2;								//Result is stored in a 32 bit variable to check overflow
-			
+			tmp = int16_t(utmp);
+
 			if(utmp > INT16_BITS){							//If result value is bigger than the maximum 15bit value (16th bit is for sign)
 				setFlag(OF);
 				setFlag(CF);
 			}
 
 			if(sign)										//If sign of operands are not the same
-				utmp = -utmp;								//update the sign
+				tmp = -tmp;									//update the sign
 
-			global_regs.general_regs[dst] = int16_t(utmp);
+			global_regs.general_regs[dst] = int16_t(tmp);
 
 			delay = IMUL_DELAY;
 			break;
@@ -264,11 +264,12 @@ void AluModule::operate() {
 			op2 = abs(int16_t(op2));						//will be the same, we will update the sign later
 
 			utmp = op2 / op1;
+			tmp = int16_t(utmp);
 
 			if(sign)										//If sign of operands are not the same
-				utmp = -utmp;								//update the sign
+				tmp = -tmp;									//update the sign
 
-			global_regs.general_regs[dst] = int16_t(utmp);
+			global_regs.general_regs[dst] = int16_t(tmp);
 
 			delay = IDIV_DELAY;
 			break;
@@ -485,16 +486,17 @@ void AluModule::operate() {
 			op2 = abs(int16_t(op2));						//will be the same, we will update the sign later
 			
 			utmp = op1 * op2;								//Result is stored in a 32 bit variable to check overflow
-			
+			tmp = int16_t(utmp);
+
 			if(utmp > INT16_BITS){							//If result value is bigger than the maximum 15bit value (16th bit is for sign)
 				setFlag(OF);
 				setFlag(CF);
 			}
 
 			if(sign)										//If sign of operands are not the same
-				utmp = -utmp;								//update the sign
+				tmp = -tmp;									//update the sign
 
-			global_regs.general_regs[dst] = int16_t(utmp);
+			global_regs.general_regs[dst] = int16_t(tmp);
 			delay = IMUL_DELAY;
 			break;
 
@@ -515,11 +517,12 @@ void AluModule::operate() {
 			op2 = abs(int16_t(op2));						//will be the same, we will update the sign later
 
 			utmp = op2 / op1;
+			tmp = int16_t(utmp);
 
 			if(sign)										//If sign of operands are not the same
-				utmp = -utmp;								//update the sign
+				tmp = -tmp;									//update the sign
 
-			global_regs.general_regs[dst] = int16_t(utmp);
+			global_regs.general_regs[dst] = int16_t(tmp);
 			delay = IDIV_DELAY;
 			break;
 		
